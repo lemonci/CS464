@@ -1,7 +1,8 @@
 /*
- * Part of the solution for Assignment 1 (CS 464/564),
- * by Stefan Bruda.
+ * Part of the solution for Assignment 2
  */
+
+//#define DEBUG
 
 #include <stdio.h>
 #include <libgen.h>
@@ -154,13 +155,15 @@ void do_more(const char* filename, const size_t hsize, const size_t vsize) {
 
 int main (int argc, char** argv, char** envp) {
     size_t hsize = 0, vsize = 0;  // terminal dimensions, read from
-                                  // the config file
+    char* rhost = 0;                    //machine name
+    char* rport = 0;                //port num
+                                      // the config file
     char command[129];   // buffer for commands
     command[128] = '\0';
     char* com_tok[129];  // buffer for the tokenized commands
     size_t num_tok;      // number of tokens
 
-    printf("Simple shell v1.0.\n");
+    printf("Simple shell with client version v1.0.\n");
 
     // Config:
     int confd = open(config, O_RDONLY);
@@ -188,7 +191,7 @@ int main (int argc, char** argv, char** envp) {
     }
 
     // read terminal size
-    while (hsize == 0 || vsize == 0) {
+    while (hsize == 0 || vsize == 0 ) {
         int n = readline(confd, command, 128);
         if (n == recv_nodata)
             break;
@@ -260,14 +263,27 @@ int main (int argc, char** argv, char** envp) {
         real_com[num_tok] = 0;      // null termination for execve
 
         int bg = 0;
-        if (strcmp(com_tok[0], "&") == 0) { // background command coming
+        int local = 0;
+        if (strcmp(com_tok[0], "!") == 0){ //local commands
+#ifdef DEBUG
+            fprintf(stderr, "%s: local command\n", __FILE__);
+#endif
+            local = 1;
+            //discard the first token which means local access
+            real_com = com_tok + 1;
+
+        }
+
+
+        if (strcmp(real_com[0], "&") == 0) { // background command coming
 #ifdef DEBUG
             fprintf(stderr, "%s: background command\n", __FILE__);
 #endif
             bg = 1;
             // discard the first token now that we know that it
             // specifies a background process...
-            real_com = com_tok + 1;  
+            
+            real_com = real_com + 1;  
         }
 
         // ASSERT: num_tok > 0
@@ -275,20 +291,27 @@ int main (int argc, char** argv, char** envp) {
         // Process input:
         if (strlen(real_com[0]) == 0) // no command, luser just pressed return
             continue;
-        else if (real_com[0].rfind("! ", 0) == 0) {
+
+        if (local == 0 ){               // TCP client stuff -- do not forget local ==0 bg =1
+            printf("do something client\n");
+            continue;
+        }
+        else{   //local commands
             if (strcmp(real_com[0], "exit") == 0) {
-                printf("Bye\n");
-                return 0;
+            printf("Bye\n");
+            return 0;
             }
+
             else if (strcmp(real_com[0], "more") == 0) {
-            // note: more never goes into background (any prefixing
-            // `&' is ignored)
+                // note: more never goes into background (any prefixing
+                // `&' is ignored)
                 if (real_com[1] == 0)
                     printf("more: too few arguments\n");
                 // list all the files given in the command line arguments
                 for (size_t i = 1; real_com[i] != 0; i++) 
                     do_more(real_com[i], hsize, vsize);
             }
+
             else { // external command
                 if (bg) {  // background command, we fork a process that
                         // awaits for its completion
@@ -312,9 +335,6 @@ int main (int argc, char** argv, char** envp) {
                 }
             }
         }
-        else {
-            // connect to server
-        }
-
+       
     }
 }

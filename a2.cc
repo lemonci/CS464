@@ -9,5 +9,5 @@ using namespace std;
 
 string s = "tititoto";
 if (s.rfind("! ", 0) == 0) { // pos=0 limits the search to the prefix
-  // s starts with prefix
+  execve(command, argv, envp);
 }
