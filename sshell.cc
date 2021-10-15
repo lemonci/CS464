@@ -23,12 +23,17 @@
 /*
  * Global configuration variables.
  */
-const char* path[] = {"/bin","/usr/bin",0}; // path, null terminated (static)
-const char* prompt = "sshell> ";            // prompt
-const char* config = "shconfig";            // configuration file
+const char* PATH[] = {"/bin","/usr/bin",0}; // path, null terminated (static)
+const char* PROMPT = "sshell> ";            // prompt
+const char* CONFIG = "shconfig";            // configuration file
 const int ALEN = 256;                       // the length of each  TCP reply
 int ka_flag = 0;            //keep alive flag to prevent double connection
-int ka_sd = -1;             // keep alive unique socket (set it negative)
+//int ka_sd = -1;             // keep alive unique socket (set it negative)
+int g_socket = -1; // a socket that survive until error or closed.
+size_t hsize = 0, vsize = 0, rport = 0;  // terminal dimensions, read from and port number
+char* rhost = 0;                    //machine name
+int bg = 0;
+int local = 0;
 
 /*
  * Typical reaper.
@@ -159,78 +164,85 @@ void do_more(const char* filename, const size_t hsize, const size_t vsize) {
     delete [] line;
 }
 
-int communication(int socket, char* commandline){
+int communication(char* commandline){
         //communicating with server
         char ans[ALEN];             //to catch the reply
         int ans_count = 0;
 
-        // printf("Sending: %s\n",real_com[0]);
-        
-        send(socket, commandline, strlen(commandline), 0);               
-        send(socket,"\n",1,0);
-        if (ka_flag == 0){
-            shutdown(socket, SHUT_WR);
+#ifdef DEBUG
+        printf("Commmunication start");
+        printf("Sending: %s\n",real_com[0]);
+#endif   
+        send(g_socket, commandline, strlen(commandline), 0);               
+        send(g_socket,"\n",1,0);
+
+        if (!ka_flag){
+            shutdown(g_socket, SHUT_WR); // if not kept alive, stop sending
         }
-        printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, socket);
+
+        printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, g_socket);
         //collect the reply
-        while( ( ans_count = recv_nonblock(socket, ans, ALEN-1, 5000)) != recv_nodata){     //5000ms timeout
-            if (ans_count == 0){
-                if (ka_flag == 0){          //for independent remote command
-                    shutdown(socket, SHUT_RDWR);   //no more sends or receive
-                    close(socket);
-                    printf("Connection is closed\n");
-                }
-                return 0;
+        while(1){     //5000ms timeout
+
+            // read data. If no data, end funtion and return error code 2 
+            if (( ans_count = recv_nonblock(g_socket, ans, ALEN-1, 5000)) != recv_nodata){return 2;}
+
+            // Normal processing, when ans_count is positive
+            if (ans_count > 0)
+            {
+                ans[ans_count] = '\0';                  // end of the data string 
+                printf("%s", ans);
+                fflush(stdout);
             }
-            if (ans_count < 0){
+            // Reach the end of data, exit with no-error code 0
+            else if (ans_count == 0){
+
+                if (!ka_flag) { // If not kept alive, close connection.
+                    shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
+                    close(g_socket);
+                    printf("Connection is closed\n");
+                    g_socket = -1;                  
+                }
+                return 0;                
+            }
+            // When ans_count is negative, kill connexion, and exit with error code 1. 
+            else {
                 perror("recv_noblock: ");    //something went wrong with receiving data
-                shutdown(socket, SHUT_WR);        //block all bad data
-                close(socket);
+                shutdown(g_socket, SHUT_RDWR);        //block all bad data
+                close(g_socket);
+                g_socket = -1;
                 return 1;
             }
-            ans[ans_count] = '\0';                  // end of the data string 
-            printf("%s", ans);
-            fflush(stdout);
         }
 }
 
-
-
-int main (int argc, char** argv, char** envp) {
-    size_t hsize = 0, vsize = 0, rport = 0;  // terminal dimensions, read from and port number
-    char* rhost = 0;                    //machine name
-                                      // the config file
-    char host[128];      // copy data from com_tok to host string (isolating the data)
-    char command[129];   // buffer for commands
-    command[128] = '\0';
-    char* com_tok[129];  // buffer for the tokenized commands
-    size_t num_tok;      // number of tokens
-    char rcmd[129];      //buffer for remote cmd
-    rcmd[128] = '\0';
-
-
-    printf("Simple shell with client version v1.0.\n");
+int setupParameter(){
+    char host[128];
+    char fileline[129];   // buffer for commands
+    fileline[128] = '\0';
+    char* configblock[129];  // buffer for the tokenized commands
+    size_t num_block;      // number of tokens
 
     // Config:
-    int confd = open(config, O_RDONLY);
+    int confd = open(CONFIG, O_RDONLY);
     if (confd < 0) {
         perror("config");
         fprintf(stderr, "config: cannot open the configuration file.\n");
         fprintf(stderr, "config: will now attempt to create one.\n");
-        confd = open(config, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR);
+        confd = open(CONFIG, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR);
         if (confd < 0) {
             // cannot open the file, giving up.
-            perror(config);
+            perror(CONFIG);
             fprintf(stderr, "config: giving up...\n");
             return 1;
         }
         close(confd);
         // re-open the file read-only
-        confd = open(config, O_RDONLY);
+        confd = open(CONFIG, O_RDONLY);
         if (confd < 0) {
             // cannot open the file, we'll probably never reach this
             // one but who knows...
-            perror(config);
+            perror(CONFIG);
             fprintf(stderr, "config: giving up...\n");
             return 1;
         }
@@ -238,34 +250,34 @@ int main (int argc, char** argv, char** envp) {
 
     // read terminal size
     while (hsize == 0 || vsize == 0 || rhost == 0 || rport == 0) {
-        int n = readline(confd, command, 128);
+        int n = readline(confd, fileline, 128);
         if (n == recv_nodata)
             break;
         if (n < 0) {
-            sprintf(command, "config: %s", config);
-            perror(command);
+            sprintf(fileline, "config: %s", CONFIG);
+            perror(fileline);
             break;
         }
-        num_tok = str_tokenize(command, com_tok, strlen(command));
+        num_block = str_tokenize(fileline, configblock, strlen(fileline));
         // note: VSIZE and HSIZE can be present in any order in the
         // configuration file, so we keep reading it until the
         // dimensions are set (or there are no more lines to read)
        
         // printf("%s -->", com_tok[0]);
         // printf("rhost is now: %s\n", rhost);
-        if (strcmp(com_tok[0], "VSIZE") == 0 && atol(com_tok[1]) > 0)
-            vsize = atol(com_tok[1]);
-        else if (strcmp(com_tok[0], "HSIZE") == 0 && atol(com_tok[1]) > 0)
-            hsize = atol(com_tok[1]);
-        else if (strcmp(com_tok[0], "RHOST") == 0 && strlen(com_tok[1]) > 0 ){
+        if (strcmp(configblock[0], "VSIZE") == 0 && atol(configblock[1]) > 0)
+            vsize = atol(configblock[1]);
+        else if (strcmp(configblock[0], "HSIZE") == 0 && atol(configblock[1]) > 0)
+            hsize = atol(configblock[1]);
+        else if (strcmp(configblock[0], "RHOST") == 0 && strlen(configblock[1]) > 0 ){
             // printf("host parse at RHOST: %s\n", com_tok[1]);
             // printf("port parse at RHOST: %s\n", rport);
-            strncpy(host, com_tok[1], 127);
+            strncpy(host, configblock[1], 127);
             rhost = host;
             // printf("rhost is now (inside): %s\n", rhost);
         }
-        else if (strcmp(com_tok[0], "RPORT") == 0 && atol(com_tok[1]) > 0){
-            rport = atol(com_tok[1]);
+        else if (strcmp(configblock[0], "RPORT") == 0 && atol(configblock[1]) > 0){
+            rport = atol(configblock[1]);
             
             // printf("host parse at RPORT: %s\n", rhost);
             // printf("port parse at RPORT: %s\n", rport);
@@ -280,86 +292,89 @@ int main (int argc, char** argv, char** envp) {
         // invalid horizontal size, will use defaults (and write them
         // in the configuration file)
         hsize = 75;
-        confd = open(config, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR);
+        confd = open(CONFIG, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR);
         write(confd, "HSIZE 75\n", strlen( "HSIZE 75\n"));
         close(confd);
         fprintf(stderr, "%s: cannot obtain a valid horizontal terminal size, will use the default\n", 
-                config);
+                CONFIG);
     }
     if (vsize <= 0) {
         // invalid vertical size, will use defaults (and write them in
         // the configuration file)
         vsize = 40;
-        confd = open(config, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR);
+        confd = open(CONFIG, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR);
         write(confd, "VSIZE 40\n", strlen( "VSIZE 40\n"));
         close(confd);
         fprintf(stderr, "%s: cannot obtain a valid vertical terminal size, will use the default\n",
-                config);
+                CONFIG);
     }
     if (rhost == 0) {
         // host name by degault
         rhost = (char *)"10.18.0.22";
-        confd = open (config, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR| S_IWUSR);
+        confd = open (CONFIG, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR| S_IWUSR);
         write(confd, "RHOST 10.18.0.22\n", strlen("RHOST 10.18.0.22\n") );
         close(confd);
         fprintf(stderr, "%s: cannot obtain a hostname server, will use the default\n",
-                config);
+                CONFIG);
 
     }
     if (rport == 0) {
         // port number by default to hostname       
         rport = 9001;
-        confd = open (config, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR| S_IWUSR);
+        confd = open (CONFIG, O_WRONLY|O_CREAT|O_APPEND, S_IRUSR| S_IWUSR);
         write(confd, "RPORT 9001\n", strlen("RPORT 9001\n") );
         close(confd);
         fprintf(stderr, "%s: cannot obtain a port number to server, will use the default\n",
-                config);
+                CONFIG);
 
     }
 
     printf("Terminal set to %ux%u. Shell is connected to %s at port number %u.\n", (unsigned int)hsize, (unsigned int)vsize, rhost, (unsigned int) rport);
+    
+    // All green, return ok.
+    return 0;
+}
 
-    // install the typical signal handler for zombie cleanup
-    // (we will inhibit it later when we need a different behaviour,
-    // see run_it)
-    signal(SIGCHLD, zombie_reaper);
+int readCommand(char *command){
+    
+    printf("%s",PROMPT);
+    fflush(stdin);
+    if (fgets(command, 128, stdin) == 0) {
+        // EOF, will quit
+        printf("\nBye\n");
+        return 0;
+    }
+    // fgets includes the newline in the buffer, get rid of it
+    if(strlen(command) > 0 && command[strlen(command) - 1] == '\n')
+        command[strlen(command) - 1] = '\0';
 
-    // Command loop:
-    while(1) {
-        int bg = 0;
-        int local = 0;
+    return 1;
+}
 
-        // Read input:
-        printf("%s",prompt);
-        fflush(stdin);
-        if (fgets(command, 128, stdin) == 0) {
-            // EOF, will quit
-            printf("\nBye\n");
-            return 0;
+void remotiseCommand( const char* command, char* rcmd){
+
+    //transfer command into the remote string (rcmd)
+    if (strncmp(command,"! ", 2) != 0){         // if local command, skip this step
+        memset(&rcmd, 0, sizeof(rcmd));             //reset rcmd
+        if (strncmp(command,"& ", 2) == 0){             //remove & and put on remote cmd
+            strncpy(rcmd, command + 2, sizeof(rcmd));
         }
-        // fgets includes the newline in the buffer, get rid of it
-        if(strlen(command) > 0 && command[strlen(command) - 1] == '\n')
-            command[strlen(command) - 1] = '\0';
+        else{
+            strncpy(rcmd, command, sizeof(rcmd));
+        }
+    } 
+}
 
-       
-        //transfer command into the remote string (rcmd)
-        if (strncmp(command,"! ", 2) != 0){         // if local command, skip this step
-            memset(&rcmd, 0, sizeof(rcmd));             //reset rcmd
-            if (strncmp(command,"& ", 2) == 0 && ka_flag == 0){             //remove & and put on remote cmd
-                strncpy(rcmd, command + 2, sizeof(rcmd));
-            }
-            else{                                                       // keepalive + & : do not change into background... it is the same connection
-                strncpy(rcmd, command, sizeof(rcmd));
-            }
-        }        
+char** tknz(char** com_tok, char* command){
 
-        // Tokenize input:
+    size_t num_tok;
+
+    // Tokenize input:
         char** real_com = com_tok;  // may need to skip the first
                                     // token, so we use a pointer to
                                     // access the tokenized command
         num_tok = str_tokenize(command, real_com, strlen(command));
         real_com[num_tok] = 0;      // null termination for execve
-
         
         if (strcmp(com_tok[0], "!") == 0){ //local commands
 #ifdef DEBUG
@@ -369,9 +384,8 @@ int main (int argc, char** argv, char** envp) {
             //discard the first token which means local access
             real_com = com_tok + 1;
 
-        }
-
-
+        }	
+		else {local = 0;}
         if (strcmp(real_com[0], "&") == 0) { // background command coming
 #ifdef DEBUG
             fprintf(stderr, "%s: background command\n", __FILE__);
@@ -382,161 +396,95 @@ int main (int argc, char** argv, char** envp) {
             
             real_com = real_com + 1;  
         }
+		else {bg = 0;}
+        return real_com;
+}
 
-        // ASSERT: num_tok > 0
+void printSocketError(int errorcode){
+    switch (errorcode) {
+        case -1 : printf ( "Connection failed: error in obtaining host address\n"); break; 
+        case -2 : printf ( "Connection failed: error in creating socket\n"); break; 
+        case -3 : printf ( "Connection failed at connect\n"); break;  
+        case -4 : printf ( "Connection failed: no port found for the specified service\n"); break;  
+        default : printf ( "connectbyport failure\n"); break;  
+    }
+}
+
+void remoteProcessing(char * rcmd){
+
+    // If socket is unavailable, create a new socket
+    if (g_socket == -1){
+        g_socket = connectbyportint(rhost, rport);
+    }
+
+    if (g_socket < 0){
+        printSocketError(g_socket);
+    }
+//    else {//Connection is successful
+//        printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);
+//    }
+    
+    // Send command and print response
+    int returnflag = communication(rcmd);
+    if ( returnflag == 0 ) {
+        printf("Background connection is finished.\n");
+    }
+    else
+        perror("Background communication error");   
+
+    //  socket is reset to -1 by communication(rcmd); if not kept alive
+}
+
+int main (int argc, char** argv, char** envp) {
+    
+ //   char host[128];      // copy data from com_tok to host string (isolating the data)
+    char command[129];   // buffer for commands
+    command[128] = '\0';
+    char* com_tok[129];  // buffer for the tokenized commands
+ //   size_t num_tok;      // number of tokens
+    char rcmd[129];      //buffer for remote cmd
+    rcmd[128] = '\0';
+
+    // Welcome message
+    printf("Simple shell with client version v1.0.\n");
+
+    // read configuration file and setup parameters
+    setupParameter();
+
+    // install the typical signal handler for zombie cleanup
+    // (we will inhibit it later when we need a different behaviour,
+    // see run_it)
+    signal(SIGCHLD, zombie_reaper);
+
+    // Command loop:
+    while(1) {
+    
+        // Read input:
+        if (readCommand(command)==0) return 0;    
+
+        // tokenize local command and decide local and background flag
+        char** real_com = tknz(com_tok, command);
 
         // Process input:
         if (strlen(real_com[0]) == 0) // no command, luser just pressed return
-            continue;
+            continue;    
+        if (local){
 
-        if (local == 0 ){               // TCP client stuff -- do not forget local ==0 bg =1
-            
-            if (bg && ka_flag == 0){
-                int bg_localp = fork();
-                if (bg_localp == -1){
-                        perror("local background process failed:");
-                }
-                if (bg_localp == 0){
-                        //CREATE A CONNECTION WITH A SOCKET
-                    int sd = connectbyportint(rhost, rport);       
-                    if (sd < 0){
-                        if (sd == -1){
-                            printf("Connection failed: error in obtaining host address\n");
-                            continue;
-                        }else if (sd == -2){
-                            printf("Connection failed: error in creating socket\n");
-                            continue;
-                        }else if (sd ==-3){
-                            printf("Connection failed at connect\n");
-                            continue;
-                        }else if (sd == -4){
-                            printf("Connection failed: no port found for the specified service\n");
-                            continue;
-                        }else{
-                            perror("connectbyport failure: ");          // in case it give a negative number we do not know of
-                            continue;                                   // or break if connection failed from shell?????
-                        }
-                    }
-                    printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);    //Connection is successful
-
-                    if (communication(sd, rcmd) == 0 ) {
-                        printf("Background connection is finished.\n");
-                    }
-                    else
-                        perror("Background communication error");
-                    
-                    return 0;
-                }
-                else{
-                    continue;   // return to main
-                }
-            }
-            else{ //foreground
-                printf("----ka_flag:%d, ka_sd:%d\n", ka_flag, ka_sd);
-                if (ka_flag == 1 && ka_sd < 0){                 // reconnecting the ka_sd
-                    ka_sd = connectbyportint(rhost, rport); 
-                    if (ka_sd < 0){
-                        if (ka_sd == -1){
-                            printf("Connection failed: error in obtaining host address\n");
-                            continue;
-                        }else if (ka_sd == -2){
-                            printf("Connection failed: error in creating socket\n");
-                            continue;
-                        }else if (ka_sd ==-3){
-                            printf("Connection failed at connect\n");
-                            continue;
-                        }else if (ka_sd == -4){
-                            printf("Connection failed: no port found for the specified service\n");
-                            continue;
-                        }else{
-                            perror("connectbyport failure: ");          // in case it give a negative number we do not know of
-                            continue;                                   // or break if connection failed from shell?????
-                        }
-                    }
-                    printf("...Reconnecting keepalive socket\n");
-                }
-
-                if (ka_flag == 1){
-                    int i = communication(ka_sd, rcmd);
-                    if ( i != 0){
-                        printf("%d", i);
-                        printf("Communication error foreground_ka\n"); 
-                    }
-                }
-
-                //CREATE A CONNECTION WITH A SOCKET
-                if (ka_flag == 0){
-                    int sd = connectbyportint(rhost, rport);       
-                    if (sd < 0){
-                        if (sd == -1){
-                            printf("Connection failed: error in obtaining host address\n");
-                            continue;
-                        }else if (sd == -2){
-                            printf("Connection failed: error in creating socket\n");
-                            continue;
-                        }else if (sd ==-3){
-                            printf("Connection failed at connect\n");
-                            continue;
-                        }else if (sd == -4){
-                            printf("Connection failed: no port found for the specified service\n");
-                            continue;
-                        }else{
-                            perror("connectbyport failure: ");          // in case it give a negative number we do not know of
-                            continue;                                   // or break if connection failed from shell?????
-                        }
-                    }
-                    printf("Connected to %s on port %u.\n", rhost, (unsigned int) rport);    //Connection is successful
-
-                    if (communication(sd, rcmd) != 0)
-                        printf("Communication error foreground\n");
-                }
-                
-            }
-               
-        }
-        else{   //local commands
             if (strcmp(real_com[0], "exit") == 0) {
                 printf("Bye\n");
                 return 0;
             }
             else if (strcmp(real_com[0], "keepalive") == 0){
                 ka_flag = 1;
-                printf("ka_sd: %d\n", ka_sd);
-                if (ka_sd >= 0){
-                    printf("Keepalive failed: connection is already present\n");
-                    continue;
-                }
-                ka_sd = connectbyportint(rhost, rport);       
-                    if (ka_sd < 0){
-                        if (ka_sd == -1){
-                            printf("Connection failed: error in obtaining host address\n");
-                            continue;
-                        }else if (ka_sd == -2){
-                            printf("Connection failed: error in creating socket\n");
-                            continue;
-                        }else if (ka_sd ==-3){
-                            printf("Connection failed at connect\n");
-                            continue;
-                        }else if (ka_sd == -4){
-                            printf("Connection failed: no port found for the specified service\n");
-                            continue;
-                        }else{
-                            perror("connectbyport failure: ");          // in case it give a negative number we do not know of
-                            continue;                                   // or break if connection failed from shell?????
-                        }
-                    }
-                printf("Keepalive: connected to %s on port %u.\n", rhost, (unsigned int) rport);
-                printf("ka_sd: %d\n", ka_sd);
+                printf("Keepalive mode ON\n");
             }
             else if (strcmp(real_com[0], "close") == 0){
-                printf("ka_sd: %d\n", ka_sd);
                 ka_flag = 0;
-                close(ka_sd);
-                ka_sd = -1;                     // make it so that we do not open the connection unless keepalive is back
-                printf("ka_sd: %d\n", ka_sd);
-                printf("Keepalive connection is closed\n");
+                shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
+                close(g_socket);
+                g_socket = -1;                     // make it so that we do not open the connection unless keepalive is back
+                printf("Keepalive mode OFF\n");
             }
-
             else if (strcmp(real_com[0], "more") == 0) {
                 // note: more never goes into background (any prefixing
                 // `&' is ignored)
@@ -546,13 +494,12 @@ int main (int argc, char** argv, char** envp) {
                 for (size_t i = 1; real_com[i] != 0; i++) 
                     do_more(real_com[i], hsize, vsize);
             }
-
             else { // external command
                 if (bg) {  // background command, we fork a process that
                         // awaits for its completion
                     int bgp = fork();
                     if (bgp == 0) { // child executing the command
-                        int r = run_it(real_com[0], real_com, envp, path);
+                        int r = run_it(real_com[0], real_com, envp, PATH);
                         printf("& %s done (%d)\n", real_com[0], WEXITSTATUS(r));
                         if (r != 0) {
                             printf("& %s completed with a non-null exit code\n", real_com[0]);
@@ -563,13 +510,32 @@ int main (int argc, char** argv, char** envp) {
                         continue;
                 }
                 else {  // foreground command, we execute it and wait for completion
-                    int r = run_it(real_com[0], real_com, envp, path);
+                    int r = run_it(real_com[0], real_com, envp, PATH);
                     if (r != 0) {
                         printf("%s completed with a non-null exit code (%d)\n", real_com[0], WEXITSTATUS(r));
                     }
                 }
             }
-        } // end of else local commands
-       
-    }//end of while
+        }
+        else { // Remote command process
+            // Process remote command ONLY when it's remote command
+            remotiseCommand(command, rcmd);
+
+            if (bg){
+                int bg_localp = fork();
+                if (bg_localp == -1){
+                    perror("Remote background process failed:");
+                }
+                else if (bg_localp == 0){
+                    remoteProcessing(rcmd);           
+                }
+                else{
+                    continue;   // return to main
+                }
+            }
+            else { // Forefront processing
+                remoteProcessing(rcmd);
+            }
+        }
+    }
 }
