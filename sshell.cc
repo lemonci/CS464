@@ -27,9 +27,9 @@ const char* path[] = {"/bin","/usr/bin",0}; // path, null terminated (static)
 const char* prompt = "sshell> ";            // prompt
 const char* config = "shconfig";            // configuration file
 const int ALEN = 256;                       // the length of each  TCP reply
-char req[ALEN];
-char ans[ALEN];
-int kpa = 0;
+int ka_flag = 0;            //keep alive flag to prevent double connection
+int ka_sd = -1;             // keep alive unique socket (set it negative)
+
 /*
  * Typical reaper.
  */
@@ -166,30 +166,31 @@ int communication(int socket, char* commandline){
 
         // printf("Sending: %s\n",real_com[0]);
         
-
         send(socket, commandline, strlen(commandline), 0);               
         send(socket,"\n",1,0);
-//        shutdown(socket, SHUT_WR);
-
+        if (ka_flag == 0){
+            shutdown(socket, SHUT_WR);
+        }
+        printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, socket);
         //collect the reply
         while( ( ans_count = recv_nonblock(socket, ans, ALEN-1, 5000)) != recv_nodata){     //5000ms timeout
-			if(kpa != 1){
-				if (ans_count == 0){
-					shutdown(socket, SHUT_RDWR);   //no more sends or receive
-					close(socket);
-					printf("Connection is closed\n");
-					return 0;
-				}
-				if (ans_count < 0){
-					perror("recv_noblock: ");    //something went wrong with receiving data
-					shutdown(socket, SHUT_WR);        //block all bad data
-					close(socket);
-					return 1;
-				}
-				ans[ans_count] = '\0';                  // end of the data string 
-				printf("%s", ans);
-				fflush(stdout);
-			}
+            if (ans_count == 0){
+                if (ka_flag == 0){          //for independent remote command
+                    shutdown(socket, SHUT_RDWR);   //no more sends or receive
+                    close(socket);
+                    printf("Connection is closed\n");
+                }
+                return 0;
+            }
+            if (ans_count < 0){
+                perror("recv_noblock: ");    //something went wrong with receiving data
+                shutdown(socket, SHUT_WR);        //block all bad data
+                close(socket);
+                return 1;
+            }
+            ans[ans_count] = '\0';                  // end of the data string 
+            printf("%s", ans);
+            fflush(stdout);
         }
 }
 
@@ -206,6 +207,7 @@ int main (int argc, char** argv, char** envp) {
     size_t num_tok;      // number of tokens
     char rcmd[129];      //buffer for remote cmd
     rcmd[128] = '\0';
+
 
     printf("Simple shell with client version v1.0.\n");
 
@@ -343,19 +345,11 @@ int main (int argc, char** argv, char** envp) {
         //transfer command into the remote string (rcmd)
         if (strncmp(command,"! ", 2) != 0){         // if local command, skip this step
             memset(&rcmd, 0, sizeof(rcmd));             //reset rcmd
-            if (strncmp(command,"& ", 2) == 0){             //remove & and put on remote cmd
+            if (strncmp(command,"& ", 2) == 0 && ka_flag == 0){             //remove & and put on remote cmd
                 strncpy(rcmd, command + 2, sizeof(rcmd));
-                bg = 1;
             }
-            else{
-				if (command == "! keepalive"){
-					kpa = 1;
-				}
-				else if (command == "! close"){
-					kpa = 0;
-					strncpy(rcmd, command, sizeof(rcmd));
-				}
-                else strncpy(rcmd, command, sizeof(rcmd));
+            else{                                                       // keepalive + & : do not change into background... it is the same connection
+                strncpy(rcmd, command, sizeof(rcmd));
             }
         }        
 
@@ -397,56 +391,81 @@ int main (int argc, char** argv, char** envp) {
 
         if (local == 0 ){               // TCP client stuff -- do not forget local ==0 bg =1
             
-            signal(SIGCHLD, block_zombie_reaper);            // we want to wait for local process to finish first
+            if (bg && ka_flag == 0){
+                int bg_localp = fork();
+                if (bg_localp == -1){
+                        perror("local background process failed:");
+                }
+                if (bg_localp == 0){
+                        //CREATE A CONNECTION WITH A SOCKET
+                    int sd = connectbyportint(rhost, rport);       
+                    if (sd < 0){
+                        if (sd == -1){
+                            printf("Connection failed: error in obtaining host address\n");
+                            continue;
+                        }else if (sd == -2){
+                            printf("Connection failed: error in creating socket\n");
+                            continue;
+                        }else if (sd ==-3){
+                            printf("Connection failed at connect\n");
+                            continue;
+                        }else if (sd == -4){
+                            printf("Connection failed: no port found for the specified service\n");
+                            continue;
+                        }else{
+                            perror("connectbyport failure: ");          // in case it give a negative number we do not know of
+                            continue;                                   // or break if connection failed from shell?????
+                        }
+                    }
+                    printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);    //Connection is successful
 
-            int localp = fork();
-            if (localp == -1){
-                perror("local process failed:");
+                    if (communication(sd, rcmd) == 0 ) {
+                        printf("Background connection is finished.\n");
+                    }
+                    else
+                        perror("Background communication error");
+                    
+                    return 0;
+                }
+                else{
+                    continue;   // return to main
+                }
             }
-            else if (localp == 0){
-                if (bg){
-                    int bg_localp = fork();
-                    if (localp == -1){
-                         perror("local background process failed:");
-                    }
-                    if (bg_localp == 0){
-                         //CREATE A CONNECTION WITH A SOCKET
-                        int sd = connectbyportint(rhost, rport);       
-                        if (sd < 0){
-                            if (sd == -1){
-                                printf("Connection failed: error in obtaining host address\n");
-                                continue;
-                            }else if (sd == -2){
-                                printf("Connection failed: error in creating socket\n");
-                                continue;
-                            }else if (sd ==-3){
-                                printf("Connection failed at connect\n");
-                                continue;
-                            }else if (sd == -4){
-                                printf("Connection failed: no port found for the specified service\n");
-                                continue;
-                            }else{
-                                perror("connectbyport failure: ");          // in case it give a negative number we do not know of
-                                continue;                                   // or break if connection failed from shell?????
-                            }
+            else{ //foreground
+                printf("----ka_flag:%d, ka_sd:%d\n", ka_flag, ka_sd);
+                if (ka_flag == 1 && ka_sd < 0){                 // reconnecting the ka_sd
+                    ka_sd = connectbyportint(rhost, rport); 
+                    if (ka_sd < 0){
+                        if (ka_sd == -1){
+                            printf("Connection failed: error in obtaining host address\n");
+                            continue;
+                        }else if (ka_sd == -2){
+                            printf("Connection failed: error in creating socket\n");
+                            continue;
+                        }else if (ka_sd ==-3){
+                            printf("Connection failed at connect\n");
+                            continue;
+                        }else if (ka_sd == -4){
+                            printf("Connection failed: no port found for the specified service\n");
+                            continue;
+                        }else{
+                            perror("connectbyport failure: ");          // in case it give a negative number we do not know of
+                            continue;                                   // or break if connection failed from shell?????
                         }
-                        printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);    //Connection is successful
+                    }
+                    printf("...Reconnecting keepalive socket\n");
+                }
 
-                        if (communication(sd, rcmd) == 0 ) {
-                            printf("Background connection is finished.\n");
-                        }
-                        else
-                            perror("Background communication error");
-                        
-                        return 0;
-                    }
-                    else{
-                        return 0;
-                        //continue;
+                if (ka_flag == 1){
+                    int i = communication(ka_sd, rcmd);
+                    if ( i != 0){
+                        printf("%d", i);
+                        printf("Communication error foreground_ka\n"); 
                     }
                 }
-                else{ //foreground
-                     //CREATE A CONNECTION WITH A SOCKET
+
+                //CREATE A CONNECTION WITH A SOCKET
+                if (ka_flag == 0){
                     int sd = connectbyportint(rhost, rport);       
                     if (sd < 0){
                         if (sd == -1){
@@ -468,57 +487,54 @@ int main (int argc, char** argv, char** envp) {
                     }
                     printf("Connected to %s on port %u.\n", rhost, (unsigned int) rport);    //Connection is successful
 
-					while (1) {
-						int n;
-						
-						while ((n = recv_nonblock(sd,ans,ALEN-1,500)) != recv_nodata) {
-							if (n == 0) {
-								shutdown(sd, SHUT_RDWR);
-								close(sd);
-								printf("Connection closed by %s.\n", argv[1]);
-								return 0;
-							}
-							if (n < 0) {
-								perror("recv_nonblock");
-								shutdown(sd, SHUT_WR);
-								close(sd);
-								break;
-							}
-							ans[n] = '\0';
-							printf("%s", ans);
-							fflush(stdout);
-						}
-
-						printf("> ");
-						fflush(stdout);
-						fgets(req,256,stdin);
-						// eat up the terminating newline
-						if(strlen(req) > 0 && req[strlen(req) - 1] == '\n')
-							req[strlen(req) - 1] = '\0';
-						printf(" --> %s\n", req);
-						fflush(stdout);
-						
-						send(sd,req,strlen(req),0);
-						send(sd,"\n",1,0);
-					}
-                    
                     if (communication(sd, rcmd) != 0)
-                        printf("Communication error");
-                    
-                    return 0;
+                        printf("Communication error foreground\n");
                 }
-               
-            }else{
-                waitpid(localp, NULL, 0);
-                // we restore the signal handler now that our baby answered
-                signal(SIGCHLD, zombie_reaper);
+                
             }
-
+               
         }
         else{   //local commands
             if (strcmp(real_com[0], "exit") == 0) {
-            printf("Bye\n");
-            return 0;
+                printf("Bye\n");
+                return 0;
+            }
+            else if (strcmp(real_com[0], "keepalive") == 0){
+                ka_flag = 1;
+                printf("ka_sd: %d\n", ka_sd);
+                if (ka_sd >= 0){
+                    printf("Keepalive failed: connection is already present\n");
+                    continue;
+                }
+                ka_sd = connectbyportint(rhost, rport);       
+                    if (ka_sd < 0){
+                        if (ka_sd == -1){
+                            printf("Connection failed: error in obtaining host address\n");
+                            continue;
+                        }else if (ka_sd == -2){
+                            printf("Connection failed: error in creating socket\n");
+                            continue;
+                        }else if (ka_sd ==-3){
+                            printf("Connection failed at connect\n");
+                            continue;
+                        }else if (ka_sd == -4){
+                            printf("Connection failed: no port found for the specified service\n");
+                            continue;
+                        }else{
+                            perror("connectbyport failure: ");          // in case it give a negative number we do not know of
+                            continue;                                   // or break if connection failed from shell?????
+                        }
+                    }
+                printf("Keepalive: connected to %s on port %u.\n", rhost, (unsigned int) rport);
+                printf("ka_sd: %d\n", ka_sd);
+            }
+            else if (strcmp(real_com[0], "close") == 0){
+                printf("ka_sd: %d\n", ka_sd);
+                ka_flag = 0;
+                close(ka_sd);
+                ka_sd = -1;                     // make it so that we do not open the connection unless keepalive is back
+                printf("ka_sd: %d\n", ka_sd);
+                printf("Keepalive connection is closed\n");
             }
 
             else if (strcmp(real_com[0], "more") == 0) {
