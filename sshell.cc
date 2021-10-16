@@ -167,7 +167,7 @@ void do_more(const char* filename, const size_t hsize, const size_t vsize) {
     delete [] line;
 }
 
-int communication(char* commandline){
+int communication(char* commandline){ 
         //communicating with server
         char ans[ALEN];             //to catch the reply
         int ans_count = 0;
@@ -183,7 +183,7 @@ int communication(char* commandline){
             shutdown(g_socket, SHUT_WR); // if not kept alive, stop sending
         }
 
-        // printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, g_socket);
+        printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, g_socket);
         //collect the reply
         while(1){     //5000ms timeout
 
@@ -208,7 +208,7 @@ int communication(char* commandline){
             else if (ans_count == 0){
                 shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
                 close(g_socket);
-                printf("Connection is closed\n");
+                printf("Connection is closed by the server.\n");
                 g_socket = -9;                  
                 return 0;                
             }
@@ -218,6 +218,59 @@ int communication(char* commandline){
                 shutdown(g_socket, SHUT_RDWR);        //block all bad data
                 close(g_socket);
                 g_socket = -9;
+                return 1;
+            }
+        }
+}
+
+int communication_bg(char* commandline, int domesticSocket){ 
+        //communicating with server
+        char ans[ALEN];             //to catch the reply
+        int ans_count = 0;
+
+#ifdef DEBUG
+        printf("Commmunication start");
+        printf("Sending: %s\n",real_com[0]);
+#endif   
+        send(domesticSocket, commandline, strlen(commandline), 0);               
+        send(domesticSocket,"\n",1,0);
+
+//        if (!ka_flag){
+//            shutdown(domesticSocket, SHUT_WR); // if not kept alive, stop sending
+//        }
+
+         printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, domesticSocket);
+        //collect the reply
+        // There are three way to exit with return. Always shutdown socket before return. 
+        while(1){     //5000ms timeout
+
+            // read data. If no data, end funtion and return error code 3
+            if (( ans_count = recv_nonblock(domesticSocket, ans, ALEN-1, 5000)) == recv_nodata){
+                shutdown(domesticSocket, SHUT_RDWR);   //no more sends or receive
+                close(domesticSocket);
+                printf("Connection is closed\n"); 
+				return 3;
+            }
+
+            // Normal processing, when ans_count is positive
+            if (ans_count > 0)
+            {
+                ans[ans_count] = '\0';                  // end of the data string 
+                printf("%s", ans);
+                fflush(stdout);
+            }
+            // Reach the end of data, exit with no-error code 0
+            else if (ans_count == 0){
+                shutdown(domesticSocket, SHUT_RDWR);   //no more sends or receive
+                close(domesticSocket);
+                printf("Connection is closed by the server.\n");             
+                return 0;                
+            }
+            // When ans_count is negative, kill connexion, and exit with error code 1. 
+            else {
+                perror("recv_noblock: ");    //something went wrong with receiving data
+                shutdown(domesticSocket, SHUT_RDWR);        //block all bad data
+                close(domesticSocket);
                 return 1;
             }
         }
@@ -368,38 +421,57 @@ void printSocketError(int errorcode){
     }
 }
 
-void remoteProcessing(char * rcmd){
+void remoteProcessing(char * rcmd, int bg){
+    // bg: 1 , create a local socket and call communication_bg which will destroy socket after use. 
+    // bg: 0 , manage the g_socket (considering ka_flag) and call communication.
+    if (bg){
+        // create a local socket
+        // Variable is inside the function and will be ereased upon completion
+        int l_socket = connectbyportint(rhost, rport);
 
-    // If socket is unavailable, create a new socket
-    if (g_socket < 0){
-		if (ka_flag)
-            printf("...Connecting the keepalive connection\n");
-        g_socket = connectbyportint(rhost, rport);	// printf("rhost:%s", rhost); printf("rport:%lu", rport); 
+        // confirm socket is available
+        if (l_socket < 0){
+            printSocketError(l_socket);
+        }
+        printf("Background Connected to %s on port %u, via one-off socket\n", rhost, (unsigned int) rport);
         
-    }
+        // call backgound communication
+        int returnflag = communication_bg(rcmd,l_socket);
+        if(returnflag != 0 && returnflag != 3)
+            perror("Background communication error"); 
 
-    if (g_socket < 0){
-        printSocketError(g_socket);
     }
-    printf("Connected to %s on port %u.\n", rhost, (unsigned int) rport);
-// printf ("%d", g_socket);
-//    else {//Connection is successful
-//        printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);
-//    }
-    
-    // Send command and print response
-    int returnflag = communication(rcmd); // printf("returnflag: %d \n", returnflag);
-    // if ( returnflag == 0 ) {
-    //     printf("Background connection is finished.\n");
-    // }
-	// else if ( returnflag == 3 ) {
-    //     printf("Background connection is finished.\n");
-    // }
-    // else
-    if(returnflag != 0 && returnflag != 3)
-        perror("Background communication error");   
+    else {
+        // If socket is unavailable, create a new socket
+        if (g_socket < 0){
+        //	if (ka_flag)
+        //        printf("...Connecting the keepalive connection\n");
+            g_socket = connectbyportint(rhost, rport);	// printf("rhost:%s", rhost); printf("rport:%lu", rport); 
+        }
 
-    //  socket is reset to -1 by communication(rcmd); if not kept alive
+        if (g_socket < 0){
+            printSocketError(g_socket);
+        }
+        printf("Connected to %s on port %u.\n", rhost, (unsigned int) rport);
+    // printf ("%d", g_socket);
+    //    else {//Connection is successful
+    //        printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);
+    //    }
+        
+        // Send command and print response
+        int returnflag = communication(rcmd); // printf("returnflag: %d \n", returnflag);
+        // if ( returnflag == 0 ) {
+        //     printf("Background connection is finished.\n");
+        // }
+        // else if ( returnflag == 3 ) {
+        //     printf("Background connection is finished.\n");
+        // }
+        // else
+        if(returnflag != 0 && returnflag != 3)
+            perror("Communication error");   
+
+        //  socket is reset to -1 by communication(rcmd); if not kept alive
+    }
 }
 
 int main (int argc, char** argv, char** envp) {
@@ -481,10 +553,10 @@ int main (int argc, char** argv, char** envp) {
                 return 0;
             }
             else if (strcmp(real_com[0], "keepalive") == 0){
-                if (ka_flag > 0){
-                    printf("Keepalive failed: connection is already present\n");
-                    continue;
-                }
+             //   if (ka_flag > 0){
+             //       printf("Keepalive failed: connection is already present\n");
+             //       continue;
+             //   }
                 ka_flag = 1;
                 printf("Keepalive mode ON\n");
             }
@@ -532,20 +604,27 @@ int main (int argc, char** argv, char** envp) {
             //transfer command into the remote string (rcmd)
 			// printf("rcmd: %s\n", rcmd);printf("command: %s\n", command);
             if (bg){
-                int bg_localp = fork();
-                if (bg_localp == -1){
-                    perror("Remote background process failed:");
-                }
-                else if (bg_localp == 0){
-                    remoteProcessing(rcmd);
-                    return 0;           
-                }
-                else{
-                    continue;   // return to main
+				if(!ka_flag){
+					int bg_localp = fork();
+					if (bg_localp == -1){
+						perror("Remote background process failed:");
+					}
+					else if (bg_localp == 0){
+						remoteProcessing(rcmd, bg); // bg flag is 1
+						printf("\n%s",PROMPT);
+						return 0;           
+					}
+					else{
+						continue;   // return to main
+					}
+				}
+				else {
+                    // in keepalive mode, force remoteProcessing to foreground mode with 0
+                    remoteProcessing(rcmd, 0); 
                 }
             }
             else { // Forefront processing
-                remoteProcessing(rcmd);
+                remoteProcessing(rcmd, bg);
             }
         }
     }
