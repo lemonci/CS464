@@ -32,8 +32,8 @@ int ka_flag = 0;            //keep alive flag to prevent double connection
 int g_socket = -1; // a socket that survive until error or closed.
 size_t hsize = 0, vsize = 0, rport = 0;  // terminal dimensions, read from and port number
 char* rhost = 0;                    //machine name
-int bg = 0;
-int local = 0;
+char host[128];
+
 
 /*
  * Typical reaper.
@@ -180,12 +180,19 @@ int communication(char* commandline){
             shutdown(g_socket, SHUT_WR); // if not kept alive, stop sending
         }
 
-        printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, g_socket);
+        // printf("***inside communication ka_flag, sd:%d, %d\n", ka_flag, g_socket);
         //collect the reply
         while(1){     //5000ms timeout
 
-            // read data. If no data, end funtion and return error code 2 
-            if (( ans_count = recv_nonblock(g_socket, ans, ALEN-1, 5000)) != recv_nodata){return 2;}
+            // read data. If no data, end funtion and return error code 3
+            if (( ans_count = recv_nonblock(g_socket, ans, ALEN-1, 5000)) == recv_nodata){
+				if (!ka_flag) { // If not kept alive, close connection.
+                    shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
+                    close(g_socket);
+                    printf("Connection is closed\n");
+                    g_socket = -9;                  
+                }
+				return 3;}
 
             // Normal processing, when ans_count is positive
             if (ans_count > 0)
@@ -201,7 +208,7 @@ int communication(char* commandline){
                     shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
                     close(g_socket);
                     printf("Connection is closed\n");
-                    g_socket = -1;                  
+                    g_socket = -9;                  
                 }
                 return 0;                
             }
@@ -210,18 +217,17 @@ int communication(char* commandline){
                 perror("recv_noblock: ");    //something went wrong with receiving data
                 shutdown(g_socket, SHUT_RDWR);        //block all bad data
                 close(g_socket);
-                g_socket = -1;
+                g_socket = -9;
                 return 1;
             }
         }
 }
 
 int setupParameter(){
-    char host[128];
     char fileline[129];   // buffer for commands
     fileline[128] = '\0';
     char* configblock[129];  // buffer for the tokenized commands
-    size_t num_block;      // number of tokens
+//    size_t num_block;      // number of tokens
 
     // Config:
     int confd = open(CONFIG, O_RDONLY);
@@ -258,7 +264,7 @@ int setupParameter(){
             perror(fileline);
             break;
         }
-        num_block = str_tokenize(fileline, configblock, strlen(fileline));
+        str_tokenize(fileline, configblock, strlen(fileline));
         // note: VSIZE and HSIZE can be present in any order in the
         // configuration file, so we keep reading it until the
         // dimensions are set (or there are no more lines to read)
@@ -351,53 +357,9 @@ int readCommand(char *command){
     return 1;
 }
 
-void remotiseCommand( const char* command, char* rcmd){
+void remotiseCommand(char* command, char* rcmd){
 
-    //transfer command into the remote string (rcmd)
-    if (strncmp(command,"! ", 2) != 0){         // if local command, skip this step
-        memset(&rcmd, 0, sizeof(rcmd));             //reset rcmd
-        if (strncmp(command,"& ", 2) == 0){             //remove & and put on remote cmd
-            strncpy(rcmd, command + 2, sizeof(rcmd));
-        }
-        else{
-            strncpy(rcmd, command, sizeof(rcmd));
-        }
-    } 
-}
-
-char** tknz(char** com_tok, char* command){
-
-    size_t num_tok;
-
-    // Tokenize input:
-        char** real_com = com_tok;  // may need to skip the first
-                                    // token, so we use a pointer to
-                                    // access the tokenized command
-        num_tok = str_tokenize(command, real_com, strlen(command));
-        real_com[num_tok] = 0;      // null termination for execve
-        
-        if (strcmp(com_tok[0], "!") == 0){ //local commands
-#ifdef DEBUG
-            fprintf(stderr, "%s: local command\n", __FILE__);
-#endif
-            local = 1;
-            //discard the first token which means local access
-            real_com = com_tok + 1;
-
-        }	
-		else {local = 0;}
-        if (strcmp(real_com[0], "&") == 0) { // background command coming
-#ifdef DEBUG
-            fprintf(stderr, "%s: background command\n", __FILE__);
-#endif
-            bg = 1;
-            // discard the first token now that we know that it
-            // specifies a background process...
-            
-            real_com = real_com + 1;  
-        }
-		else {bg = 0;}
-        return real_com;
+    
 }
 
 void printSocketError(int errorcode){
@@ -413,20 +375,25 @@ void printSocketError(int errorcode){
 void remoteProcessing(char * rcmd){
 
     // If socket is unavailable, create a new socket
-    if (g_socket == -1){
-        g_socket = connectbyportint(rhost, rport);
+    if (g_socket < 0){
+		g_socket = connectbyportint(rhost, rport);	// printf("rhost:%s", rhost); printf("rport:%lu", rport); 
+        
     }
 
     if (g_socket < 0){
         printSocketError(g_socket);
     }
+    printf ("%d", g_socket);
 //    else {//Connection is successful
 //        printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);
 //    }
     
     // Send command and print response
-    int returnflag = communication(rcmd);
+    int returnflag = communication(rcmd); // printf("returnflag: %d \n", returnflag);
     if ( returnflag == 0 ) {
+        printf("Background connection is finished.\n");
+    }
+	else if ( returnflag == 3 ) {
         printf("Background connection is finished.\n");
     }
     else
@@ -436,7 +403,7 @@ void remoteProcessing(char * rcmd){
 }
 
 int main (int argc, char** argv, char** envp) {
-    
+
  //   char host[128];      // copy data from com_tok to host string (isolating the data)
     char command[129];   // buffer for commands
     command[128] = '\0';
@@ -444,6 +411,7 @@ int main (int argc, char** argv, char** envp) {
  //   size_t num_tok;      // number of tokens
     char rcmd[129];      //buffer for remote cmd
     rcmd[128] = '\0';
+    size_t num_tok;
 
     // Welcome message
     printf("Simple shell with client version v1.0.\n");
@@ -458,13 +426,51 @@ int main (int argc, char** argv, char** envp) {
 
     // Command loop:
     while(1) {
-    
+        int bg = 0;
+        int local = 0;
+
         // Read input:
-        if (readCommand(command)==0) return 0;    
-
+        if (readCommand(command)==0) return 0;
+		if (strncmp(command,"! ", 2) != 0){         // if local command, skip this step
+			memset(&rcmd, 0, sizeof(rcmd));             //reset rcmd
+			if (strncmp(command,"& ", 2) == 0 && keepalive = 0){             //remove & and put on remote cmd
+				strncpy(rcmd, command + 2, sizeof(rcmd));
+			}
+			else{
+				strncpy(rcmd, command, sizeof(rcmd));
+			}
+		} 
         // tokenize local command and decide local and background flag
-        char** real_com = tknz(com_tok, command);
+        // Tokenize input:
+        char** real_com = com_tok;  // may need to skip the first
+                                    // token, so we use a pointer to
+                                    // access the tokenized command
+        num_tok = str_tokenize(command, real_com, strlen(command));
+        real_com[num_tok] = 0;      // null termination for execve
 
+        
+        if (strcmp(com_tok[0], "!") == 0){ //local commands
+#ifdef DEBUG
+            fprintf(stderr, "%s: local command\n", __FILE__);
+#endif
+            local = 1;
+            //discard the first token which means local access
+            real_com = com_tok + 1;
+
+        }
+
+
+        if (strcmp(real_com[0], "&") == 0) { // background command coming
+#ifdef DEBUG
+            fprintf(stderr, "%s: background command\n", __FILE__);
+#endif
+            bg = 1;
+            // discard the first token now that we know that it
+            // specifies a background process...
+            
+            real_com = real_com + 1;  
+        }
+            
         // Process input:
         if (strlen(real_com[0]) == 0) // no command, luser just pressed return
             continue;    
@@ -482,7 +488,7 @@ int main (int argc, char** argv, char** envp) {
                 ka_flag = 0;
                 shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
                 close(g_socket);
-                g_socket = -1;                     // make it so that we do not open the connection unless keepalive is back
+                g_socket = -9;                     // make it so that we do not open the connection unless keepalive is back
                 printf("Keepalive mode OFF\n");
             }
             else if (strcmp(real_com[0], "more") == 0) {
@@ -519,8 +525,8 @@ int main (int argc, char** argv, char** envp) {
         }
         else { // Remote command process
             // Process remote command ONLY when it's remote command
-            remotiseCommand(command, rcmd);
-
+            //transfer command into the remote string (rcmd)
+			// printf("rcmd: %s\n", rcmd);printf("command: %s\n", command);
             if (bg){
                 int bg_localp = fork();
                 if (bg_localp == -1){
@@ -535,6 +541,9 @@ int main (int argc, char** argv, char** envp) {
             }
             else { // Forefront processing
                 remoteProcessing(rcmd);
+					if (strncmp(rcmd,"quit", 4) == 0 || strncmp(rcmd,"Quit", 4) == 0 || strncmp(rcmd,"QUIT", 4) == 0 ){         // if local command, skip this step
+						g_socket = -9; //reset g_socket for new remote connection
+					}
             }
         }
     }
