@@ -1,8 +1,5 @@
 /*
- * Assignment 2: Client Shell
-
- * Made by Wing Shu Leung & Monica Li
- * Starting code of Basic Unix Shell from Stefan Bruda's Assignment 1
+ * Part of the solution for Assignment 2
  */
 
 //#define DEBUG
@@ -206,10 +203,13 @@ int communication(char* commandline){
             }
             // Reach the end of data, exit with no-error code 0
             else if (ans_count == 0){
-                shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
-                close(g_socket);
-                printf("Connection is closed\n");
-                g_socket = -9;                  
+
+                if (!ka_flag) { // If not kept alive, close connection.
+                    shutdown(g_socket, SHUT_RDWR);   //no more sends or receive
+                    close(g_socket);
+                    printf("Connection is closed\n");
+                    g_socket = -9;                  
+                }
                 return 0;                
             }
             // When ans_count is negative, kill connexion, and exit with error code 1. 
@@ -357,6 +357,10 @@ int readCommand(char *command){
     return 1;
 }
 
+void remotiseCommand(char* command, char* rcmd){
+
+    
+}
 
 void printSocketError(int errorcode){
     switch (errorcode) {
@@ -372,31 +376,27 @@ void remoteProcessing(char * rcmd){
 
     // If socket is unavailable, create a new socket
     if (g_socket < 0){
-		if (ka_flag)
-            printf("...Connecting the keepalive connection\n");
-        g_socket = connectbyportint(rhost, rport);	// printf("rhost:%s", rhost); printf("rport:%lu", rport); 
+		g_socket = connectbyportint(rhost, rport);	// printf("rhost:%s", rhost); printf("rport:%lu", rport); 
         
     }
 
     if (g_socket < 0){
         printSocketError(g_socket);
     }
-    printf("Connected to %s on port %u.\n", rhost, (unsigned int) rport);
-// printf ("%d", g_socket);
+    printf ("%d", g_socket);
 //    else {//Connection is successful
 //        printf("\nBackground connected to %s on port %u.\n", rhost, (unsigned int) rport);
 //    }
     
     // Send command and print response
     int returnflag = communication(rcmd); // printf("returnflag: %d \n", returnflag);
-    // if ( returnflag == 0 ) {
-    //     printf("Background connection is finished.\n");
-    // }
-	// else if ( returnflag == 3 ) {
-    //     printf("Background connection is finished.\n");
-    // }
-    // else
-    if(returnflag != 0 && returnflag != 3)
+    if ( returnflag == 0 ) {
+        printf("Background connection is finished.\n");
+    }
+	else if ( returnflag == 3 ) {
+        printf("Background connection is finished.\n");
+    }
+    else
         perror("Background communication error");   
 
     //  socket is reset to -1 by communication(rcmd); if not kept alive
@@ -433,7 +433,7 @@ int main (int argc, char** argv, char** envp) {
         if (readCommand(command)==0) return 0;
 		if (strncmp(command,"! ", 2) != 0){         // if local command, skip this step
 			memset(&rcmd, 0, sizeof(rcmd));             //reset rcmd
-			if (strncmp(command,"& ", 2) == 0 && ka_flag == 0){             //remove & and put on remote cmd
+			if (strncmp(command,"& ", 2) == 0 && keepalive = 0){             //remove & and put on remote cmd
 				strncpy(rcmd, command + 2, sizeof(rcmd));
 			}
 			else{
@@ -481,10 +481,6 @@ int main (int argc, char** argv, char** envp) {
                 return 0;
             }
             else if (strcmp(real_com[0], "keepalive") == 0){
-                if (ka_flag > 0){
-                    printf("Keepalive failed: connection is already present\n");
-                    continue;
-                }
                 ka_flag = 1;
                 printf("Keepalive mode ON\n");
             }
@@ -537,8 +533,7 @@ int main (int argc, char** argv, char** envp) {
                     perror("Remote background process failed:");
                 }
                 else if (bg_localp == 0){
-                    remoteProcessing(rcmd);
-                    return 0;           
+                    remoteProcessing(rcmd);           
                 }
                 else{
                     continue;   // return to main
@@ -546,6 +541,9 @@ int main (int argc, char** argv, char** envp) {
             }
             else { // Forefront processing
                 remoteProcessing(rcmd);
+					if (strncmp(rcmd,"quit", 4) == 0 || strncmp(rcmd,"Quit", 4) == 0 || strncmp(rcmd,"QUIT", 4) == 0 ){         // if local command, skip this step
+						g_socket = -9; //reset g_socket for new remote connection
+					}
             }
         }
     }
