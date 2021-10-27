@@ -38,10 +38,53 @@ void block_zombie_reaper (int signal) {
 // use to write data on file history
 struct monitor_t {
     pthread_mutex_t mutex;
+    char* line_ptr;
 }
 
+//monitor is there to collect data
+monitor_t mon;
+
 void* monitor (void* ignored){
+    // open file 'prev_command' upon CPRINT
+    //collect the  result from the client command (output)
+        // how to collect the RESULT of execve and copy it through a file?
+        // how to copy/paste the same result the status code message back to file??
+            //how to printf to client? it it using readline?
+    //close the file 'prev_command'
+}
+
+void* do_client (int sd){
+    const int ALEN = 256;
+    char req[ALEN];
+    int line;
+
+    //the message line
+    char status[5];
+    int code;
+    char code_num[50];
+    char mess[ALEN];
+
+    printf("Incoming client... \n");
+
+    while ( (line = readline(sd, req, ALEN-1)) != 0){
+        memset(status, 0, 5);
+        memset(code_num, 0, sizeof(code_num));
+        memset(mess, 0, sizeof(mess));
+
+        if (strcmp(req, "quit") == 0){
+            printf("quit command: sending EOF.\n");
     
+            status = "OK ";
+            code = 0;
+            sprintf(code_num, "%d", code);
+            send(sd,status, strlen(status), 0);
+            send(sd,code_num, strlen(code_num), 0);
+            shutdown(sd,1);
+            close(sd);
+            printf("Outgoing client...\n");
+            return NULL;
+        }
+    }
 }
 
 int main (int argc, char** argv, char** envp){
@@ -69,5 +112,23 @@ int main (int argc, char** argv, char** envp){
     //create monitor thread:
     pthread_create(&tt, &ta, monitor, NULL);
 
+    while (1){
+        //Accept connection:
+        ssock = accept(msock, (struct sockaddr*)&client_addr, &client_addr_len);
+        if (ssock < 0){
+            if (errno == EINTR)
+                continue;
+            perror ("accept");
+            return 1;
+        }
 
+        //create thread + execute in do_client:
+        if ( pthread_create(&tt, &ta, (void* (*) (void*)) do_client, (void*) ssock) != 0){
+            perror("pthread_create");
+            return 1;
+        }
+
+    }
+
+    return 0; //it will never reach
 }
