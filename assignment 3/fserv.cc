@@ -1,0 +1,473 @@
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <signal.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <signal.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <iostream>
+#include "tokenize.h"
+#include "tcp-utils.h"
+
+
+
+void* do_client (int sd);
+int create_file(char* file_name);
+void add_trailing_spaces(char *dest, int size, int num_of_spaces);
+int initiate_descriptor();
+int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0);
+int read_descriptor();
+int check_descriptor(char file_name[80]);
+int delete_descriptor(int file_desc);
+int clear_descriptor();
+
+
+pthread_mutex_t lock;
+
+int main (int argc, char** argv)
+{
+  const int port = 9002;
+  const int qlen = 32;
+
+  long int msock, ssock;
+
+  struct sockaddr_in client_addr;
+  unsigned int client_addr_len = sizeof(client_addr);
+
+  clear_descriptor();
+  initiate_descriptor();
+
+  msock = passivesocket(port,qlen);
+  if (msock < 0)
+  {
+      perror("passivesocket");
+      return 1;
+  }
+  printf("Server up and listening on port %d.\n", port);
+
+  pthread_t tt;
+  pthread_attr_t ta;
+  pthread_attr_init(&ta);
+  pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
+
+
+  while (1)
+  {
+    ssock = accept(msock, (struct sockaddr*)&client_addr, &client_addr_len);
+    if (ssock < 0) {
+        if (errno == EINTR) continue;
+        perror("accept");
+        return 1;
+    }
+
+    if (pthread_create(&tt, &ta, (void* (*) (void*))do_client, (void*)ssock) != 0 )
+    {
+        perror("pthread_create");
+        return 1;
+    }
+}
+return 0;
+}
+
+
+void* do_client (int sd)
+{
+    const int ALEN = 256;
+    char req[ALEN];
+    const char* ack = "ACK : ";
+    const char* ackOK = "OK";
+    const char* ackERR = "ERR";
+    const char* ackFAIL = "FAIL";
+    char ack1[1000];
+    int n,fp;
+    char* com_tok[129];
+    size_t num_tok;
+
+    pid_t x = syscall(__NR_gettid);
+    //std::cout<<"Thread id: "<<x;
+
+    char str[10];
+    sprintf(str, "%d", x);
+
+    printf("Incoming client...\n");
+
+    // Loop while the client has something to say...
+    while ((n = readline(sd,req,ALEN-1)) != recv_nodata)
+    {
+
+        num_tok = str_tokenize(req, com_tok, strlen(req));
+        //str_tokenize(req, com_tok, strlen(req));
+
+        if (strcmp(com_tok[0],"quit") == 0)
+        {
+            printf("Received quit, sending EOF.\n");
+            shutdown(sd,1);
+            close(sd);
+            printf("Outgoing client...\n");
+            return NULL;
+        }
+        else if(strcmp(com_tok[0],"FOPEN")==0)
+        {
+          if(num_tok!=2)
+          {
+            snprintf(ack1, sizeof ack1,"%s %d Improper FOPEN.\nFOPEN format -> FOPEN filename \n", ackFAIL,errno);
+            send(sd,ack1,strlen(ack1),0);
+          }
+          else
+          {
+                int aclck;
+                aclck=pthread_mutex_trylock(&lock);
+                if(aclck==0)
+                {
+                  int chkfd = check_descriptor(com_tok[1]);
+                  if(chkfd==0)
+                  {
+                    fp = create_file(com_tok[1]);
+                    int wd = write_descriptor(getpid(),com_tok[1],fp);
+                    if(fp!=-1 && wd!=-1)
+                    {
+                      snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,fp);
+                      send(sd,ack1,strlen(ack1),0);
+                    }
+                    else
+                    {
+                      snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
+                      send(sd,ack1,strlen(ack1),0);
+                    }
+                  }
+                  else
+                  {
+                    snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,chkfd);
+                    send(sd,ack1,strlen(ack1),0);
+                  }
+                  pthread_mutex_unlock(&lock);
+
+                }
+                else
+                {
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+                //pthread_mutex_unlock(&lock);
+            }
+        }
+        else if(strcmp(com_tok[0],"FSEEK")==0)
+        {
+          if(num_tok!=3)
+          {
+            snprintf(ack1, sizeof ack1,"%s %d Improper FSEEK.\nFSEEK format -> FSEEK identifier offset \n", ackFAIL,errno);
+            send(sd,ack1,strlen(ack1),0);
+          }
+          else
+          {
+                int skrt = lseek(atoi(com_tok[1]), atoi(com_tok[2]), SEEK_CUR);
+                if(skrt==-1)
+                {
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,ENOENT);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+                else
+                {
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+          }
+        }
+        else if(strcmp(com_tok[0],"FREAD")==0)
+        {
+          if(num_tok!=3)
+          {
+            snprintf(ack1, sizeof ack1,"%s %d Improper FREAD.\nFREAD format -> FREAD identifier length \n", ackFAIL,errno);
+            send(sd,ack1,strlen(ack1),0);
+          }
+          else
+          {
+
+                char rdbyts[1000];
+                int rdrt = read(atoi(com_tok[1]), rdbyts,atoi(com_tok[2]));
+                if(rdrt==-1)
+                {
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,-1);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+                else
+                {
+                  sprintf(ack1,"%s %d %s\n", ackOK,rdrt,rdbyts);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+          }
+        }
+        else if(strcmp(com_tok[0],"FWRITE")==0)
+        {
+          if(num_tok!=3)
+          {
+            snprintf(ack1, sizeof ack1,"%s %d Improper FWRITE.\nFWRITE format -> FWRITE identifier bytes \n", ackFAIL,errno);
+            send(sd,ack1,strlen(ack1),0);
+          }
+          else
+          {
+
+                int wtrt = write(atoi(com_tok[1]),com_tok[2],strlen(com_tok[2]));
+                if(wtrt==-1)
+                {
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,-1);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+                else
+                {
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+            }
+        }
+        else if(strcmp(com_tok[0],"FCLOSE")==0)
+        {
+          if(num_tok!=3)
+          {
+            snprintf(ack1, sizeof ack1,"%s %d Improper FCLOSE.\nFCLOSE format -> FCLOSE identifier \n", ackFAIL,errno);
+            send(sd,ack1,strlen(ack1),0);
+          }
+          else
+          {
+
+                //close(atoi(com_tok[1]));
+                int ddrt = delete_descriptor(atoi(com_tok[1]));
+                if(ddrt==0)
+                {
+                  close(atoi(com_tok[1]));
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,ddrt);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+                else
+                {
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,ddrt);
+                  send(sd,ack1,strlen(ack1),0);
+                }
+          }
+
+        }
+        else
+        {
+          send(sd,ack,strlen(ack),0);
+          send(sd,"I hope that's not a valid command for me.",strlen("I hope that's not a valid command for me."),0);
+          send(sd,req,strlen(req),0);
+          send(sd,"\n",1,0);
+        }
+
+    }
+    // read 0 bytes = EOF:
+    printf("Connection closed by client.\n");
+    shutdown(sd,1);
+    close(sd);
+    printf("Outgoing client...\n");
+    return NULL;
+}
+
+
+int create_file(char* file_name)
+{
+	//This function handles user-program-file-descriptor-table.
+	int fp;
+
+	//cooking the file path and name
+	char *path;
+	path = (char*) malloc(50*sizeof(char));
+	strcat(path,"");
+	strcat(path,file_name);
+	printf("-----> File %s created for client",path);
+
+	//creating the file
+	fp = open(path,O_RDWR | O_CREAT,S_IRWXU);
+
+  if(fp!=-1)
+  {
+    return fp;
+  }
+  else
+  {
+    return -1;
+  }
+
+}
+
+void add_trailing_spaces(char *dest, int size, int num_of_spaces)
+{
+    int len = strlen(dest);
+
+    if( len + num_of_spaces >= size )
+    {
+        num_of_spaces = size - len - 1;
+    }
+
+    memset( dest+len, ' ', num_of_spaces );
+    dest[len + num_of_spaces] = '\0';
+}
+
+int initiate_descriptor()
+{
+  int fd = open("file_table",O_RDWR | O_CREAT,S_IRWXU);
+  close(fd);
+  if(fd!=-1)
+  {
+    return 0;
+  }
+  else
+  {
+    return -1;
+  }
+}
+
+int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0)
+{
+  int fd;
+
+  if(deldes==0)
+  {
+    fd = open("file_table", O_RDWR | O_APPEND);
+  }
+  else
+  {
+    //desc_name="file_table_cache";
+    fd=deldes;
+  }
+
+  if(fd==-1)
+  {
+    return -1;
+  }
+  char cfp[100];
+  sprintf(cfp,"%d %s %d ",pid,file_name,file_desc);
+  add_trailing_spaces(cfp,100,(100-(int)strlen(cfp)));
+  write(fd,cfp,strlen(cfp));
+  if(deldes==0)
+  {
+    close(fd);
+  }
+  else
+  {
+    return 0;
+  }
+  return 0;
+}
+
+
+int read_descriptor()
+{
+  int fd = open("file_table", O_RDONLY);
+
+  char buff[99 ];
+  int lineno = 0;
+
+  while(read(fd,&buff,99))
+  {
+    printf("%d th line : %s |\n",lineno,buff);
+    lineno+=1;
+  }
+
+  close(fd);
+  return 0;
+}
+
+int check_descriptor(char file_name[80])
+{
+  int fd = open("file_table", O_RDONLY);
+
+  char buff[99];
+  int lineno = 0;
+  char* com_tok[129];
+
+  while(read(fd,&buff,99))
+  {
+    str_tokenize(buff, com_tok, strlen(buff));
+    //printf("%d th line : By process: %s File:%s FD:%s |\n",lineno,com_tok[0],com_tok[1],com_tok[2]);
+    if(strcmp(com_tok[1],file_name)==0)
+    {
+      close(fd);
+      return atoi(com_tok[2]);
+      break;
+    }
+    lineno+=1;
+  }
+
+  close(fd);
+  return 0;
+}
+
+int delete_descriptor(int file_desc)
+{
+  //std::cout<<"<______________DELETE DESCRIPTOR OUTPUT_______________________>";
+  int source = open("file_table", O_RDONLY);
+  int destination = open("file_table_cache",O_WRONLY | O_CREAT,S_IRWXU);
+
+  char buff[99];
+  int lineno = 0;
+  char* com_tok[129];
+  int rec_found=0;
+  int orig_del=0;
+  int cac_rnm=0;
+  while(read(source,&buff,99))
+  {
+    str_tokenize(buff, com_tok, strlen(buff));
+    printf("X-> %d th line : By process: %s File:%s FD:%s |\n",lineno,com_tok[0],com_tok[1],com_tok[2]);
+    //std::cout<<"Expected file : "<<file_name<<", Current Desc. :"<<com_tok[1];
+    if(atoi(com_tok[2])==file_desc)
+    {
+      rec_found=1;
+    }
+    else
+    {
+      //write(destination,buff,strlen(buff));
+      write_descriptor(atoi(com_tok[0]),com_tok[1],atoi(com_tok[2]),destination);
+    }
+    lineno+=1;
+  }
+
+  close(source);
+  close(destination);
+  //std::cout<<"<______________DELETE DESCRIPTOR OUTPUT_______________________>";
+  if(remove("file_table") == 0)
+    orig_del=1;
+  else
+    orig_del=-1;
+
+  if(rename("file_table_cache", "file_table") == 0)
+	{
+		cac_rnm=1;
+	}
+	else
+	{
+		cac_rnm=-1;
+	}
+
+  if(rec_found==1 && orig_del==1 && cac_rnm==1)
+  {
+    return 0;
+  }
+  else
+  {
+    return -1;
+  }
+
+
+
+}
+
+int clear_descriptor()
+{
+
+    if(remove("file_table") == 0)
+    {
+      return 0;
+    }
+    else
+    {
+      return -1;
+    }
+  return 0;
+}
