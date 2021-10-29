@@ -41,7 +41,7 @@ void block_zombie_reaper (int signal) {
     /* NOP */
 }
 
-int run_it (const char* command, char* const argv[], char* const envp[], const char** path) {
+int run_it (const char* command, char* const argv[], char* const envp[], const char** path, char* status_code, char* err_mess) {
 
     // we really want to wait for children so we inhibit the normal
     // handling of SIGCHLD
@@ -81,8 +81,10 @@ int run_it (const char* command, char* const argv[], char* const envp[], const c
         }
 
         // If we get here then all execve calls failed and errno is set
+        strcpy(status_code, "FAIL");
         char* message = new char [strlen(command)+10];
         sprintf(message, "exec %s", command);
+        strcpy(err_mess, message);
         perror(message);
         delete [] message;
         exit(errno);   // crucial to exit so that the function does not
@@ -92,6 +94,10 @@ int run_it (const char* command, char* const argv[], char* const envp[], const c
     else { // parent just waits for child completion
         waitpid(childp, &status, 0);
         // we restore the signal handler now that our baby answered
+        if (status != 0){
+            strcpy(status_code, "ERR");
+            //how to get the error message?????
+        }
         signal(SIGCHLD, zombie_reaper);
         return status;
     }
@@ -112,6 +118,7 @@ void* do_client (int sd, char** envp){
     //the message line
     char status[5];
     int code;
+    char err_mess[ALEN];
     char mess[ALEN];
 
     printf("Incoming client... \n");
@@ -121,14 +128,17 @@ void* do_client (int sd, char** envp){
     while ( (line = readline(sd, req, ALEN-1)) != recv_nodata){
         memset(status, 0, 5);
         memset(mess, 0, sizeof(mess));
+        memset(err_mess, 0, sizeof(err_mess));
 
         if (strcmp(req, "quit") == 0){
-            printf("quit command: sending EOF.\n");
-
             snprintf(status, 3, "OK");
             code = 0;
             sprintf(mess, "%s %d close tcp connection\n", status, code);
             
+            //for the output.txt
+            printf("quit command: sending EOF.\n");
+            printf("%s", mess);
+
             send(sd, ack, strlen(ack), 0);
             send(sd, mess, strlen(mess), 0);
             shutdown(sd,1);
@@ -144,14 +154,23 @@ void* do_client (int sd, char** envp){
         num_tok = str_tokenize(req, com_tok, strlen(req));
         com_tok[num_tok] = 0;   //null termination fro execve
         
-        printf("%s\n", com_tok[0]);
+        //printf("%s\n", com_tok[0]);
 
         // do we need to define exit???
 
-        int r = run_it(com_tok[0], com_tok, envp, path);
+        code = run_it(com_tok[0], com_tok, envp, path, status, err_mess);
+        if (code == 0)
+            sprintf(mess, "%s %d execve complete\n", status, code);
+        else {
+            sprintf(mess,"%s %d %s\n", status, code, err_mess);
+        }
+
+        //print to output.txt
+        printf("%s", mess);
+
         send(sd,ack, strlen(ack),0);
-        send(sd,req, strlen(req),0);
-        send(sd,"\n", 1,0);
+        send(sd,mess, strlen(mess),0);
+        
     }
 
     //read 0 bytes = EOF
