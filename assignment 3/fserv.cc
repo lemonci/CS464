@@ -71,7 +71,7 @@ int main (int argc, char** argv)
         perror("pthread_create");
         return 1;
     }
-}
+  }
 return 0;
 }
 
