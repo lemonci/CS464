@@ -15,8 +15,6 @@
 #include "tokenize.h"
 #include "tcp-utils.h"
 
-
-
 void* do_client (int sd);
 int create_file(char* file_name);
 void add_trailing_spaces(char *dest, int size, int num_of_spaces);
@@ -27,13 +25,16 @@ int check_descriptor(char file_name[80]);
 int delete_descriptor(int file_desc);
 int clear_descriptor();
 
+const int port_number = 9002;
+const int qlength = 32;
+
 
 pthread_mutex_t lock;
 
 int main (int argc, char** argv)
 {
-  const int port = 9002;
-  const int qlen = 32;
+  int port = port_number;
+  int qlen = qlength;
 
   long int msock, ssock;
 
