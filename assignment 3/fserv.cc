@@ -25,16 +25,15 @@ int check_descriptor(char file_name[80]);
 int delete_descriptor(int file_desc);
 int clear_descriptor();
 
-const int port_number = 9002;
-const int qlength = 32;
-
+#define PORT_NUMBER = 9002;
+#define QLENGTH = 9002;
 
 pthread_mutex_t lock;
 
 int main (int argc, char** argv)
 {
-  int port = port_number;
-  int qlen = qlength;
+  int port = PORT_NUMBER;
+  int qlen = QLENGTH;
 
   long int msock, ssock;
 
