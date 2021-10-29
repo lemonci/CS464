@@ -105,8 +105,7 @@ void* do_client (int sd, char** envp){
     int line;           // to receive the command
     
     //to receive the client command
-    char command[129];   // buffer for commands
-    command[128] = '\0';
+    req[255] = '\0';
     char* com_tok[129];  // buffer for the tokenized commands
     size_t num_tok;      // number of tokens
 
@@ -138,13 +137,14 @@ void* do_client (int sd, char** envp){
             return NULL;
         }
         //just to be safe, even though readline already done so...
-        if (strlen(command) > 0 && command[strlen(command)-1] =='\n')
-            command[strlen(command) -1] = '\0';
+        if (strlen(req) > 0 && req[strlen(req)-1] =='\n')
+            req[strlen(req) -1] = '\0';
         
         //tokenize input:
-        num_tok = str_tokenize(command, com_tok, strlen(command));
+        num_tok = str_tokenize(req, com_tok, strlen(req));
         com_tok[num_tok] = 0;   //null termination fro execve
         
+        printf("%s\n", com_tok[0]);
 
         // do we need to define exit???
 
