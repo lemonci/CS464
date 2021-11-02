@@ -41,7 +41,7 @@ void block_zombie_reaper (int signal) {
     /* NOP */
 }
 
-int run_it (const char* command, char* const argv[], char* const envp[], const char** path, char* status_code, char* err_mess) {
+int run_it (const char* command, char* const argv[], char* const envp[], const char** path, char* mess) {
 
     // we really want to wait for children so we inhibit the normal
     // handling of SIGCHLD
@@ -81,23 +81,40 @@ int run_it (const char* command, char* const argv[], char* const envp[], const c
         }
 
         // If we get here then all execve calls failed and errno is set
-        strcpy(status_code, "FAIL");
         char* message = new char [strlen(command)+10];
         sprintf(message, "exec %s", command);
-        strcpy(err_mess, message);
         perror(message);
         delete [] message;
-        exit(errno);   // crucial to exit so that the function does not
+        exit(1);   // crucial to exit so that the function does not
                        // return twice!
     }
 
     else { // parent just waits for child completion
-        waitpid(childp, &status, 0);
-        // we restore the signal handler now that our baby answered
-        if (status != 0){
-            strcpy(status_code, "ERR");
-            //how to get the error message?????
+        
+        if (waitpid(childp, &status, 0) != -1){
+            if (WIFEXITED(status)){
+                int status_code = WEXITSTATUS(status);
+                if (status_code == 0){
+                    //execve is executed
+                    sprintf(mess, "OK %d execve complete\n", status_code);
+                    printf("%s", mess);
+                }
+                else if (status_code == 1){
+                    //execve has an error
+                    sprintf(mess, "FAIL %d execve failed: %s\n", status_code, command);
+                    printf("%s", mess);
+                }
+                else {
+                    sprintf(mess, "ERR %d execve terminated abnormally\n", status_code);
+                    printf("%s", mess);
+                }
+                
+            }
+        }else {
+            perror("waitpid() failed");
         }
+        
+        // we restore the signal handler now that our baby answered
         signal(SIGCHLD, zombie_reaper);
         return status;
     }
@@ -147,28 +164,17 @@ void* do_client (int sd, char** envp){
             return NULL;
         }
         //just to be safe, even though readline already done so...
-        if (strlen(req) > 0 && req[strlen(req)-1] =='\n')
+        if (strlen(req) > 0 && req[strlen(req)-1] =='\r')
             req[strlen(req) -1] = '\0';
         
         //tokenize input:
         num_tok = str_tokenize(req, com_tok, strlen(req));
-        com_tok[num_tok] = 0;   //null termination fro execve
+        com_tok[num_tok] = 0;   //null termination from execve
         
         //printf("%s\n", com_tok[0]);
 
-        // do we need to define exit???
-
-        code = run_it(com_tok[0], com_tok, envp, path, status, err_mess);
-        if (code == 0)
-            sprintf(mess, "%s %d execve complete\n", status, code);
-        else {
-            sprintf(mess,"%s %d %s\n", status, code, err_mess);
-        }
-
-        //print to output.txt
-        printf("%s", mess);
-
         send(sd,ack, strlen(ack),0);
+        run_it(com_tok[0], com_tok, envp, path, mess);
         send(sd,mess, strlen(mess),0);
         
     }
