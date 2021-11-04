@@ -50,15 +50,26 @@ int run_it (const char* command, char* const argv[], char* const envp[], const c
     int childp = fork();
     int status = 0;
 
+    if (childp == -1)
+        perror("fork");
+    
     if (childp == 0) { // child does execve
 
     //redirect output
-    // int file_no  = open("output.txt", O_WRONLY | O_CREAT, S_IRUSR|S_IWUSR);
-    // if (file_no == -1){
-    //     return -2;
-    // }
-    // int output_no = dup2(file, STDOUT_FILENO);
-    // close(file_no);
+    close(1);
+    close(2);
+    int file_no  = open("output", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
+    if (file_no == -1){
+        perror("redirect: ");
+        return -2;
+    }
+    int file_out = dup2(file_no, STDOUT_FILENO);
+    int file_err = dup2(file_no, STDERR_FILENO);
+    
+    if (file_out <0 || file_err < 0){
+        printf("Unable to duplicate file descriptor.\n");
+        exit(EXIT_FAILURE);
+    }
 
 #ifdef DEBUG
         fprintf(stderr, "%s: attempting to run (%s)", __FILE__, command);
@@ -92,12 +103,14 @@ int run_it (const char* command, char* const argv[], char* const envp[], const c
     else { // parent just waits for child completion
         
         if (waitpid(childp, &status, 0) != -1){
+            int fileno = open("output", O_WRONLY|O_APPEND, S_IWUSR|S_IRUSR);
             if (WIFEXITED(status)){
                 int status_code = WEXITSTATUS(status);
                 if (status_code == 0){
                     //execve is executed
                     sprintf(mess, "OK %d execve complete\n", status_code);
                     printf("%s", mess);
+                    
                 }
                 else if (status_code == 1){
                     //execve has an error
@@ -108,10 +121,12 @@ int run_it (const char* command, char* const argv[], char* const envp[], const c
                     sprintf(mess, "ERR %d execve terminated abnormally\n", status_code);
                     printf("%s", mess);
                 }
-                
+                    write(fileno, mess, strlen(mess));
+                    close(fileno);
             }
         }else {
             perror("waitpid() failed");
+            exit(EXIT_FAILURE);
         }
         
         // we restore the signal handler now that our baby answered
@@ -133,24 +148,19 @@ void* do_client (int sd, char** envp){
     size_t num_tok;      // number of tokens
 
     //the message line
-    char status[5];
-    int code;
-    char err_mess[ALEN];
     char mess[ALEN];
 
-    printf("Incoming client... \n");
 
     signal(SIGCHLD, zombie_reaper);
 
     while ( (line = readline(sd, req, ALEN-1)) != recv_nodata){
-        memset(status, 0, 5);
+        printf("Incoming client %d... \n",sd);
+
         memset(mess, 0, sizeof(mess));
-        memset(err_mess, 0, sizeof(err_mess));
+        
 
         if (strcmp(req, "quit") == 0){
-            snprintf(status, 3, "OK");
-            code = 0;
-            sprintf(mess, "%s %d close tcp connection\n", status, code);
+            sprintf(mess, "OK 0 close tcp connection\n");
             
             //for the output.txt
             printf("quit command: sending EOF.\n");
@@ -160,9 +170,45 @@ void* do_client (int sd, char** envp){
             send(sd, mess, strlen(mess), 0);
             shutdown(sd,1);
             close(sd);
-            printf("Outgoing client...\n");
+            printf("Outgoing client %d...\n", sd);
             return NULL;
         }
+        //CPRINT
+        else if (strcmp(req, "CPRINT") == 0){
+            int lastcmd = open("output", O_RDONLY);
+            if (lastcmd < 0){
+                //cannot open the file, problably no command is issued
+                sprintf(mess, "\nFAIL 3 EIO: Input/output error\n");
+                printf("%s", mess);
+
+                send(sd, ack, strlen(ack), 0);
+                send(sd, mess, strlen(mess), 0);
+
+                //now we create the file
+                lastcmd = open ("output", O_WRONLY|O_CREAT |O_TRUNC,S_IRUSR|S_IWUSR);
+                write(lastcmd, mess, strlen(mess));
+                close(lastcmd);
+            }
+            else{
+                //the file is written
+                while ( int n = readline(lastcmd, mess, ALEN-1) != recv_nodata){
+                    if (n < 0){
+                        sprintf(mess, "output: file problem\n");
+                        perror(mess);
+                        break;
+                    }
+                    
+                    send(sd, mess, strlen(mess), 0);
+                    send(sd, "\n", 1, 0);
+                }
+                close(lastcmd);
+            }
+            shutdown(sd,1);
+            close(sd);
+            printf("Outgoing client %d...\n", sd);
+            return NULL;
+        }
+
         //just to be safe, even though readline already done so...
         if (strlen(req) > 0 && req[strlen(req)-1] =='\r')
             req[strlen(req) -1] = '\0';
@@ -182,7 +228,7 @@ void* do_client (int sd, char** envp){
     //read 0 bytes = EOF
     shutdown(sd,1);
     close(sd);
-    printf("Outgoing client...\n");
+    printf("Outgoing client %d...\n", sd);
     return NULL;
 }
 
