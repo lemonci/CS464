@@ -13,6 +13,17 @@
 
 #include "tokenize.h"
 #include "tcp-utils.h"
+//#define DEBUG
+
+/***
+ * Structure to absorb command line
+ **/
+struct cmdArgs{
+    int port_num_f = 9001;
+    int port_num_s = 9002;
+    bool detach = false;
+    bool delay = false;
+};
 
 /*
  * Global configuration variables.
@@ -248,20 +259,84 @@ void* do_client (int sd, char** envp){
     return NULL;
 }
 
+//parse the arguments for the code
+void parse_arguments(int argc, char** argv, struct cmdArgs* cmdargs){
+	if (argc <= 1){
+		printf("Nothing to parse\nSetting up default features\n");
+		return;
+	}
+	for(int i=1; i<argc ;i++){
+		// -f specifies the file server port
+		if(strcmp(argv[i], "-f") == 0 && i+1 < argc){
+		cmdargs->port_num_f = atoi(argv[i+1]);
+		i++;
+#ifdef DEBUG
+		printf("The file server port is now : %d\n",cmdargs->file_server_port);
+#endif 	
+		}
+		// -s specifies the shell server prot 
+		else if(strcmp(argv[i], "-s") == 0 && i+1 < argc){
+		cmdargs->port_num_s = atoi(argv[i+1]);
+		i++;
+#ifdef DEBUG
+		printf("The shell server port is now : %d\n",cmdargs->shell_server_port);
+#endif 
+		}
+		// -d does not detach, debugging mode
+		// TODO case sensetive check
+		else if(strcmp(argv[i], "-d") == 0){
+		cmdargs->detach = true;
+#ifdef DEBUG
+		printf("debugging mode is on\n");
+#endif
+		}
+
+		// -D delays read and write operations
+		// TODO case sensetive check
+		else if(strcmp(argv[i], "-D") == 0){
+		cmdargs->delay = true;
+#ifdef DEBUG
+		printf("Delay mode is on\n");
+#endif		
+		}
+
+		// -v
+		else if(strcmp(argv[i], "-v") == 0){
+        #define DEBUG
+#ifdef DEBUG
+		printf("verbose toggle now on\n");
+#endif
+		}
+		else {
+			printf("invalid argument: %s, ignored\n",argv[i]);
+		}
+	}
+	return;
+}
+
+
+
+
+
 int main (int argc, char** argv, char** envp){
-    const int port = 28638;             //our designated port number
+    struct cmdArgs cmd;
+
+    //int port = 28638;             //our designated port number
     const int qlen =32;
 
     long int msock, ssock;                              //master & slave socket
     struct sockaddr_in client_addr;                     // address of client
     unsigned int client_addr_len = sizeof(client_addr);  // and client addr length
 
-    msock = passivesocket(port, qlen);
+    //parse the command line
+    parse_arguments(argc, argv, &cmd);
+
+    msock = passivesocket(cmd.port_num_s, qlen);
     if (msock < 0){
         perror("passivesocket");
         return 1;
     }
-    printf("Server up and listening on port %d.\n", port);
+    printf("Server up and listening on port %d.\n", cmd.port_num_s);
 
 
     //Set the  threads
@@ -269,6 +344,7 @@ int main (int argc, char** argv, char** envp){
     pthread_attr_t ta;
     pthread_attr_init(&ta);
     pthread_attr_setdetachstate(&ta, PTHREAD_CREATE_DETACHED);
+
 
 
     while (1){
