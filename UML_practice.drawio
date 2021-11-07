@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2021-11-07T16:49:55.316Z" agent="5.0 (Windows)" etag="dXpcfI9NQTnJ7YMUndam" version="15.7.0" type="github" pages="2">
+<mxfile host="app.diagrams.net" modified="2021-11-07T16:54:29.611Z" agent="5.0 (Windows)" etag="tnPWnoM98-H_QRCj-ncm" version="15.7.0" type="github" pages="2">
   <diagram name="Question 2" id="c4acf3e9-155e-7222-9cf6-157b1a14988f">
     <mxGraphModel dx="1421" dy="752" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="none" math="0" shadow="0">
       <root>
@@ -650,6 +650,15 @@
           <mxGeometry x="-0.2469" y="-1" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
+        </mxCell>
+        <mxCell id="pyayf1UOrLS-mYXFWfWs-21" value="(1)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
+          <mxGeometry width="30" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="pyayf1UOrLS-mYXFWfWs-22" value="(2)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
+          <mxGeometry y="250" width="30" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="pyayf1UOrLS-mYXFWfWs-23" value="(3)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
+          <mxGeometry y="580" width="30" height="20" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
