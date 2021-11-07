@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2021-11-06T21:27:25.243Z" agent="5.0 (Windows)" etag="Exztbvp52GlM10mmL664" version="15.7.0" type="github" pages="2">
+<mxfile host="app.diagrams.net" modified="2021-11-07T03:09:50.578Z" agent="5.0 (Windows)" etag="6ITapWQdAC1ug52MZbHj" version="15.7.0" type="github" pages="2">
   <diagram name="Question 2" id="c4acf3e9-155e-7222-9cf6-157b1a14988f">
     <mxGraphModel dx="1421" dy="752" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="none" math="0" shadow="0">
       <root>
@@ -538,8 +538,8 @@
         </mxCell>
         <mxCell id="pyayf1UOrLS-mYXFWfWs-0" value="" style="endArrow=classic;html=1;rounded=0;endFill=1;" edge="1" parent="Mud0OtNhceNvMl3N56aQ-0">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="10" y="100" as="sourcePoint" />
-            <mxPoint x="129.5" y="100" as="targetPoint" />
+            <mxPoint x="10" y="80" as="sourcePoint" />
+            <mxPoint x="129.5" y="80" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="pyayf1UOrLS-mYXFWfWs-1" value="Package" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="pyayf1UOrLS-mYXFWfWs-0">
@@ -553,7 +553,7 @@
         <mxCell id="Mud0OtNhceNvMl3N56aQ-2" value="Logistics Service" style="shape=umlLifeline;participant=umlActor;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;verticalAlign=top;spacingTop=36;outlineConnect=0;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
           <mxGeometry x="340" y="610" width="20" height="460" as="geometry" />
         </mxCell>
-        <mxCell id="Mud0OtNhceNvMl3N56aQ-3" value="Logistics Service" style="shape=umlLifeline;participant=umlActor;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;verticalAlign=top;spacingTop=36;outlineConnect=0;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
+        <mxCell id="Mud0OtNhceNvMl3N56aQ-3" value="Export Service" style="shape=umlLifeline;participant=umlActor;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;verticalAlign=top;spacingTop=36;outlineConnect=0;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
           <mxGeometry x="500" y="610" width="20" height="460" as="geometry" />
         </mxCell>
         <mxCell id="Mud0OtNhceNvMl3N56aQ-5" value="French Service" style="shape=umlLifeline;participant=umlActor;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;verticalAlign=top;spacingTop=36;outlineConnect=0;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
@@ -561,6 +561,29 @@
         </mxCell>
         <mxCell id="Mud0OtNhceNvMl3N56aQ-6" value="Billing Service" style="shape=umlLifeline;participant=umlActor;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;verticalAlign=top;spacingTop=36;outlineConnect=0;" vertex="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
           <mxGeometry x="800" y="610" width="20" height="460" as="geometry" />
+        </mxCell>
+        <mxCell id="pyayf1UOrLS-mYXFWfWs-2" value="" style="endArrow=classic;html=1;rounded=0;endFill=1;" edge="1" parent="_bgN-c6Cz0rIDU0zwk11-1" target="Mud0OtNhceNvMl3N56aQ-2">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="730" as="sourcePoint" />
+            <mxPoint x="319.5" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pyayf1UOrLS-mYXFWfWs-3" value="Package" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="pyayf1UOrLS-mYXFWfWs-2">
+          <mxGeometry x="-0.2469" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pyayf1UOrLS-mYXFWfWs-6" value="_" style="endArrow=classic;html=1;rounded=0;endFill=1;" edge="1" parent="_bgN-c6Cz0rIDU0zwk11-1">
+          <mxGeometry x="0.0117" width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="81" y="980" as="sourcePoint" />
+            <mxPoint x="810.5" y="980" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pyayf1UOrLS-mYXFWfWs-7" value="Payment" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="pyayf1UOrLS-mYXFWfWs-6">
+          <mxGeometry x="-0.2469" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
