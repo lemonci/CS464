@@ -30,6 +30,16 @@ int clear_descriptor();
 
 pthread_mutex_t lock;
 
+struct rwexcl_t {
+    pthread_mutex_t mutex; //mutex for the whole structure
+    pthread_cond_t can_write; //condition variable, name says it all
+    unsigned int reads; //number of simultaneous rads ( a write process should wait until this number is 0)
+    unsigned int owners; //how many clients have the file opened
+    int fd; //the file descriptor (also used as file id for the clients)
+
+    char* name; // the (absolue) name of the file
+};
+
 int main (int argc, char** argv)
 {
   int port = PORT_NUMBER;
