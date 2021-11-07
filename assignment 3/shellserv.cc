@@ -10,6 +10,7 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sys/ioctl.h> 
 
 #include "tokenize.h"
 #include "tcp-utils.h"
@@ -21,7 +22,7 @@
 struct cmdArgs{
     int port_num_f = 9001;
     int port_num_s = 9002;
-    bool detach = false;
+    bool nodetach = false;
     bool delay = false;
 };
 
@@ -285,7 +286,7 @@ void parse_arguments(int argc, char** argv, struct cmdArgs* cmdargs){
 		// -d does not detach, debugging mode
 		// TODO case sensetive check
 		else if(strcmp(argv[i], "-d") == 0){
-		cmdargs->detach = true;
+		cmdargs->nodetach = true;
 #ifdef DEBUG
 		printf("debugging mode is on\n");
 #endif
@@ -323,6 +324,7 @@ int main (int argc, char** argv, char** envp){
 
     //int port = 28638;             //our designated port number
     const int qlen =32;
+    const char* logfile = "shfd.log";
 
     long int msock, ssock;                              //master & slave socket
     struct sockaddr_in client_addr;                     // address of client
@@ -331,21 +333,80 @@ int main (int argc, char** argv, char** envp){
     //parse the command line
     parse_arguments(argc, argv, &cmd);
 
+    //fork (from shell server to file server)
+    //
+    //
+    //
+
+    //binding the socking passively
     msock = passivesocket(cmd.port_num_s, qlen);
     if (msock < 0){
         perror("passivesocket");
         return 1;
     }
     printf("Server up and listening on port %d.\n", cmd.port_num_s);
+    printf("detached mode: %d.\n", cmd.nodetach);
+    
 
+
+    //creating the daemon
+    pid_t pid;
+
+
+    // no detach (no -d) goes into the background
+    if (cmd.nodetach == false){   
+        pid = fork();
+        if (pid< 0){
+            perror("startup fork");
+            exit(EXIT_FAILURE);
+        }
+        if (pid > 0)
+            exit(EXIT_SUCCESS);   //BYE THE FOREGROUND
+        
+        //we are in the child now as server in a new session -TTY purpose
+        if (setsid() < 0)
+            exit(EXIT_FAILURE);
+        
+        //ignore signals
+        signal(SIGCHLD, SIG_IGN);
+        signal(SIGHUP, SIG_IGN);
+
+        //redirect standard output & error into the file descriptor shfd.log
+        //close all descriptors except standard output & standard error
+
+        //then we close all the descriptor
+        for ( int i = getdtablesize() - 1; i >= 0; i --){
+            if (i != msock)
+                close(i); 
+        }
+
+        int x_fd = open("/dev/null", O_RDWR);   //for fd(0)
+
+        int x_fd2 = open(logfile, O_WRONLY | O_CREAT | O_APPEND); 
+        
+        int file_outErr = dup(x_fd2);  //for fd(1 &2)
+       
+        if ( x_fd< 0 | x_fd2 < 0| file_outErr < 0)
+            printf("Error at the detach");
+
+        //set new file permisssion created by daemon
+        umask(077);
+        
+    }
+    else{       
+        // -d is present (detached = debug mode)
+        
+        //remove from the controlling tty
+        int fd = open("/dev/tty", O_RDWR);
+        ioctl(fd, TIOCNOTTY, 0);
+        close(fd);
+    }
 
     //Set the  threads
     pthread_t tt;
     pthread_attr_t ta;
     pthread_attr_init(&ta);
     pthread_attr_setdetachstate(&ta, PTHREAD_CREATE_DETACHED);
-
-
 
     while (1){
         //Accept connection:
