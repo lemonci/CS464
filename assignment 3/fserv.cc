@@ -15,7 +15,7 @@
 #include "tokenize.h"
 #include "tcp-utils.h"
 
-void* do_client (int sd);
+void* do_client_f (int sd);
 int create_file(char* file_name);
 void add_trailing_spaces(char *dest, int size, int num_of_spaces);
 int initiate_descriptor();
@@ -66,17 +66,17 @@ int main (int argc, char** argv)
         return 1;
     }
 
-    if (pthread_create(&tt, &ta, (void* (*) (void*))do_client, (void*)ssock) != 0 )
+    if (pthread_create(&tt, &ta, (void* (*) (void*))do_client_f, (void*)ssock) != 0 )
     {
         perror("pthread_create");
         return 1;
     }
-  }
+}
 return 0;
 }
 
 
-void* do_client (int sd)
+void* do_client_f (int sd)
 {
     const int ALEN = 256;
     char req[ALEN];
