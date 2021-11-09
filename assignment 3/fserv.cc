@@ -339,6 +339,7 @@ int initiate_descriptor() //Can be replaced with an array of struct
 
 int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //Rewrite
 {
+    int writeAddr = -1;
     for (int i = 0; i < FILE_QUANTITY; i++) {
 	if (fileArray[i].fd == -1)
 	{
@@ -352,6 +353,8 @@ int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //R
     fileArray[writeAddr].owners = 1; //how many clients have the file opened
     fileArray[writeAddr].fd = file_desc; //the file descriptor (also used as file id for the clients)
     strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
+	
+    return 0;
 }
 
 
