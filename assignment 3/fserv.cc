@@ -338,12 +338,14 @@ int initiate_descriptor() //Can be replaced with an array of struct
 }
 
 int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //Rewrite
-{for (int i = 0; i < FILE_QUANTITY; i++) {
+{
+    for (int i = 0; i < FILE_QUANTITY; i++) {
 	if (fileArray[i].fd == -1)
 	{
 	writeAddr = i;
-	break;}
+	break;
 	}
+    }
     fileArray[writeAddr].mutex = ?;//mutex for the whole structure
     fileArray[writeAddr].can_write = ?; //condition variable, name says it all
     fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
