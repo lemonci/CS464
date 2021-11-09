@@ -340,9 +340,9 @@ int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //R
     // fileArray[writeAddr].can_write = ?; //condition variable, name says it all
     // fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
     // fileArray[writeAddr].owners = 1; //how many clients have the file opened
-    // fileArray[writeAddr].int fd = file_desc; //the file descriptor (also used as file id for the clients)
+    // fileArray[writeAddr].fd = file_desc; //the file descriptor (also used as file id for the clients)
     // fileArray[writeAddr].name= (char *) malloc(80);
-    // fileArray[writeAddr].name = file_name; // the (absolue) name of the file
+    // strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
 	
 	
   int fd;
