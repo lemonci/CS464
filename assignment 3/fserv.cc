@@ -20,7 +20,6 @@ int create_file(char* file_name);
 void add_trailing_spaces(char *dest, int size, int num_of_spaces);
 int initiate_descriptor();
 int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0);
-int read_descriptor();
 int check_descriptor(char file_name[80]);
 int delete_descriptor(int file_desc);
 int clear_descriptor();
@@ -357,49 +356,6 @@ int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //R
     strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
 	
     return 0;
-}
-
-
-int read_descriptor()
-{
-  int fd = open("file_table", O_RDONLY);
-
-  char buff[99 ];
-  int lineno = 0;
-
-  while(read(fd,&buff,99))
-  {
-    printf("%d th line : %s |\n",lineno,buff);
-    lineno+=1;
-  }
-
-  close(fd);
-  return 0;
-}
-
-int check_descriptor(char file_name[80])
-{
-  int fd = open("file_table", O_RDONLY);
-
-  char buff[99];
-  int lineno = 0;
-  char* com_tok[129];
-
-  while(read(fd,&buff,99))
-  {
-    str_tokenize(buff, com_tok, strlen(buff));
-    //printf("%d th line : By process: %s File:%s FD:%s |\n",lineno,com_tok[0],com_tok[1],com_tok[2]);
-    if(strcmp(com_tok[1],file_name)==0)
-    {
-      close(fd);
-      return atoi(com_tok[2]);
-      break;
-    }
-    lineno+=1;
-  }
-
-  close(fd);
-  return 0;
 }
 
 int delete_descriptor(int file_desc)
