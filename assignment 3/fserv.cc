@@ -167,15 +167,15 @@ void* do_client_f (int sd)
                 //pthread_mutex_unlock(&lock);
             }
         }
-        else if(strcmp(com_tok[0],"FSEEK")==0)
+        else if(strcmp(com_tok[0],"FSEEK")==0) //com_tok[0] == "FSEEK", com_tok[1] == identifier, com_tok[2] == offset
         {
           if(num_tok!=3)
-          {
+          { //if FSEEK syntax is not correct
             snprintf(ack1, sizeof ack1,"%s %d Improper FSEEK.\nFSEEK format -> FSEEK identifier offset \n", ackFAIL,errno);
             send(sd,ack1,strlen(ack1),0);
           }
           else
-          {
+          { //if FSEEK syntax is correct
                 int skrt = lseek(atoi(com_tok[1]), atoi(com_tok[2]), SEEK_CUR);
                 if(skrt==-1)
                 {
