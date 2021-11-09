@@ -43,8 +43,6 @@ struct fileRecord fileArray[FILE_QUANTITY];
 
 int main (int argc, char** argv)
 {
-  //for loop create fileArray
-	// fileArray[writeAddr].name= (char *) malloc(80);
   int port = PORT_NUMBER;
   int qlen = QLENGTH;
 
@@ -324,6 +322,13 @@ void add_trailing_spaces(char *dest, int size, int num_of_spaces)
 
 int initiate_descriptor() //Can be replaced with an array of struct
 {
+    for (int i = 0; i < FILE_QUANTITY; i++) {
+        fileArray[i].name = (char *) malloc(80);
+	fileArray[i].fd = -1;
+    }
+    return 0;
+}	
+	
   int fd = open("file_table",O_RDWR | O_CREAT,S_IRWXU);
   close(fd);
   if(fd!=-1)
