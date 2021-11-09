@@ -25,8 +25,8 @@ int check_descriptor(char file_name[80]);
 int delete_descriptor(int file_desc);
 int clear_descriptor();
 
-#define PORT_NUMBER = 9002;
-#define QLENGTH = 32;
+#define PORT_NUMBER 28648;
+#define QLENGTH 32;
 
 pthread_mutex_t lock;
 
