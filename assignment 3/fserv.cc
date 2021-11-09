@@ -108,7 +108,7 @@ void* do_client_f (int sd)
     printf("Incoming client...\n");
 
     // Loop while the client has something to say...
-    while ((n = readline(sd,req,ALEN-1)) != recv_nodata)
+    while ((n = readline(sd,req,ALEN-1)) != recv_nodata) //change to while 1, change the condition to an operation
     {
 
         num_tok = str_tokenize(req, com_tok, strlen(req));
