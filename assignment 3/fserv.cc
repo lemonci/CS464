@@ -372,32 +372,11 @@ int check_descriptor(char file_name[80])
 
 int delete_descriptor(int file_desc)
 {
-  //std::cout<<"<______________DELETE DESCRIPTOR OUTPUT_______________________>";
-  int source = open("file_table", O_RDONLY);
-  int destination = open("file_table_cache",O_WRONLY | O_CREAT,S_IRWXU);
-
-  char buff[99];
-  int lineno = 0;
-  char* com_tok[129];
-  int rec_found=0;
-  int orig_del=0;
-  int cac_rnm=0;
-  while(read(source,&buff,99))
-  {
-    str_tokenize(buff, com_tok, strlen(buff));
-    printf("X-> %d th line : By process: %s File:%s FD:%s |\n",lineno,com_tok[0],com_tok[1],com_tok[2]);
-    //std::cout<<"Expected file : "<<file_name<<", Current Desc. :"<<com_tok[1];
-    if(atoi(com_tok[2])==file_desc)
-    {
-      rec_found=1;
+    for (int i = 0; i < FILE_QUANTITY; i++) {
+        if (fileArray[i].fd == file_desc) fileArray[i].fd = -1;
     }
-    else
-    {
-      //write(destination,buff,strlen(buff));
-      write_descriptor(atoi(com_tok[0]),com_tok[1],atoi(com_tok[2]),destination);
-    }
-    lineno+=1;
-  }
+    return -1;
+}
 
   close(source);
   close(destination);
