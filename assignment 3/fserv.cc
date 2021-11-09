@@ -29,7 +29,7 @@ int clear_descriptor();
 #define FILE_QUANTITY 10;
 pthread_mutex_t lock;
 
-struct rwexcl_t {
+struct fileRecord {
     pthread_mutex_t mutex; //mutex for the whole structure
     pthread_cond_t can_write; //condition variable, name says it all
     unsigned int reads; //number of simultaneous rads ( a write process should wait until this number is 0)
@@ -39,7 +39,7 @@ struct rwexcl_t {
     char* name; // the (absolue) name of the file
 };
 
-
+struct fileRecord fileArray[FILE_QUANTITY];
 
 int main (int argc, char** argv)
 {
