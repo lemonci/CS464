@@ -347,6 +347,8 @@ int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //R
 	break;
 	}
     }
+    if (writeAddr == -1) return -1;
+    //else	
     fileArray[writeAddr].mutex = ?;//mutex for the whole structure
     fileArray[writeAddr].can_write = ?; //condition variable, name says it all
     fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
