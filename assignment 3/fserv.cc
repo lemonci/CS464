@@ -152,14 +152,14 @@ void* do_client_f (int sd)
                     }
                   }
                   else
-                  {
+                  { //lock successful, file has been openedn per file_table record
                     snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,chkfd);
                     send(sd,ack1,strlen(ack1),0);
                   }
                   pthread_mutex_unlock(&lock);
 
                 }
-                else
+                else  //file not locked
                 {
                   snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
                   send(sd,ack1,strlen(ack1),0);
