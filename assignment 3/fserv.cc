@@ -358,6 +358,18 @@ int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //R
     return 0;
 }
 
+int check_descriptor(char file_name[80])
+{
+    for (int i = 0; i < FILE_QUANTITY; i++) {
+	if (fileArray[i].fd == -1) continue;
+	if (strcmp(fileArray[i].name, file_name) == 0)
+	{
+	    return fd
+	}
+    }
+    return -1;
+}
+
 int delete_descriptor(int file_desc)
 {
   //std::cout<<"<______________DELETE DESCRIPTOR OUTPUT_______________________>";
