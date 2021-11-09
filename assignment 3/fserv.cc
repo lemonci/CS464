@@ -133,12 +133,12 @@ void* do_client_f (int sd)
           {
                 int aclck;
                 aclck=pthread_mutex_trylock(&lock);
-                if(aclck==0)
+                if(aclck==0) //file can be locked
                 {
-                  int chkfd = check_descriptor(com_tok[1]); //check if the file is open. If zero, not open.
-                  if(chkfd==0)
+                  int chkfd = check_descriptor(com_tok[1]); //check if the file is open per file_table. If zero, not open.
+                  if(chkfd==0) //file doesn't appear in file_table
                   {
-                    fp = create_file(com_tok[1]);
+                    fp = create_file(com_tok[1]); //BUG need to judge if the file exists in the file system
                     int wd = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
                     if(fp!=-1 && wd!=-1)
                     {
