@@ -191,13 +191,13 @@ void* do_client_f (int sd)
         }
         else if(strcmp(com_tok[0],"FREAD")==0)
         {
-          if(num_tok!=3)
+          if(num_tok!=3) \\FREAD syntax not correct
           {
             snprintf(ack1, sizeof ack1,"%s %d Improper FREAD.\nFREAD format -> FREAD identifier length \n", ackFAIL,errno);
             send(sd,ack1,strlen(ack1),0);
           }
           else
-          {
+          { \\ADD a condition to judge if the file is being written by other user
 
                 char rdbyts[1000];
                 int rdrt = read(atoi(com_tok[1]), rdbyts,atoi(com_tok[2]));
