@@ -135,7 +135,7 @@ void* do_client_f (int sd)
                 aclck=pthread_mutex_trylock(&lock);
                 if(aclck==0)
                 {
-                  int chkfd = check_descriptor(com_tok[1]);
+                  int chkfd = check_descriptor(com_tok[1]); //check if the file is open.
                   if(chkfd==0)
                   {
                     fp = create_file(com_tok[1]);
