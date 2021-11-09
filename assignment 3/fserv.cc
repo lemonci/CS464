@@ -139,7 +139,7 @@ void* do_client_f (int sd)
                   if(chkfd==0)
                   {
                     fp = create_file(com_tok[1]);
-                    int wd = write_descriptor(getpid(),com_tok[1],fp);
+                    int wd = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
                     if(fp!=-1 && wd!=-1)
                     {
                       snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,fp);
