@@ -364,7 +364,7 @@ int check_descriptor(char file_name[80])
 	if (fileArray[i].fd == -1) continue;
 	if (strcmp(fileArray[i].name, file_name) == 0)
 	{
-	    return fd
+	    return fileArray[i].fd;
 	}
     }
     return -1;
