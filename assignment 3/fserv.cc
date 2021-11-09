@@ -132,7 +132,7 @@ void* do_client_f (int sd)
           else
           {
                 int aclck;
-                aclck=pthread_mutex_trylock(&lock); \\lock not initialized
+                aclck=pthread_mutex_trylock(&lock); //lock not initialized
                 if(aclck==0) //file can be locked
                 {
                   int chkfd = check_descriptor(com_tok[1]); //check if the file is open per file_table. If zero, not open.
@@ -191,13 +191,13 @@ void* do_client_f (int sd)
         }
         else if(strcmp(com_tok[0],"FREAD")==0)
         {
-          if(num_tok!=3) \\FREAD syntax not correct
+          if(num_tok!=3) //FREAD syntax not correct
           {
             snprintf(ack1, sizeof ack1,"%s %d Improper FREAD.\nFREAD format -> FREAD identifier length \n", ackFAIL,errno);
             send(sd,ack1,strlen(ack1),0);
           }
           else
-          { \\ADD a condition to judge if the file is being written by other user
+          { //ADD a condition to judge if the file is being written by other user
 
                 char rdbyts[1000];
                 int rdrt = read(atoi(com_tok[1]), rdbyts,atoi(com_tok[2]));
@@ -221,7 +221,7 @@ void* do_client_f (int sd)
             send(sd,ack1,strlen(ack1),0);
           }
           else
-          {
+          { // ADD condition to check if the file can be written
 
                 int wtrt = write(atoi(com_tok[1]),com_tok[2],strlen(com_tok[2]));
                 if(wtrt==-1)
