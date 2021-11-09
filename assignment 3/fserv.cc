@@ -132,7 +132,7 @@ void* do_client_f (int sd)
           else
           {
                 int aclck;
-                aclck=pthread_mutex_trylock(&lock);
+                aclck=pthread_mutex_trylock(&lock); \\lock not inicialized
                 if(aclck==0) //file can be locked
                 {
                   int chkfd = check_descriptor(com_tok[1]); //check if the file is open per file_table. If zero, not open.
