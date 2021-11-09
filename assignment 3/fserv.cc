@@ -40,8 +40,12 @@ struct rwexcl_t {
     char* name; // the (absolue) name of the file
 };
 
+
+
 int main (int argc, char** argv)
 {
+  //for loop create fileArray
+	// fileArray[writeAddr].name= (char *) malloc(80);
   int port = PORT_NUMBER;
   int qlen = QLENGTH;
 
@@ -341,7 +345,6 @@ int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //R
     // fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
     // fileArray[writeAddr].owners = 1; //how many clients have the file opened
     // fileArray[writeAddr].fd = file_desc; //the file descriptor (also used as file id for the clients)
-    // fileArray[writeAddr].name= (char *) malloc(80);
     // strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
 	
 	
