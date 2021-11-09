@@ -261,7 +261,7 @@ void* do_client_f (int sd)
                 }
           }
 
-        }
+        } //Add compare if QUIT
         else
         {
           send(sd,ack,strlen(ack),0);
@@ -293,7 +293,7 @@ int create_file(char* file_name)
 	printf("-----> File %s created for client",path);
 
 	//creating the file
-	fp = open(path,O_RDWR | O_CREAT,S_IRWXU);
+	fp = open(path,O_RDWR | O_CREAT,S_IRWXU);  //Actually, we don't need the path. We can just create a file with filename.
 
   if(fp!=-1)
   {
