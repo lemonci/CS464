@@ -335,7 +335,17 @@ int initiate_descriptor() //Can be replaced with an array of struct
 
 int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //Rewrite
 { // for (int i = 0; i < FILE_QUANTITY; i++) {
-  // code block to be executed}
+  // writeAddr = i; break;}
+	// fileArray[writeAddr].mutex = pid;
+	// pthread_mutex_t mutex; //mutex for the whole structure
+    // pthread_cond_t can_write; //condition variable, name says it all
+    // unsigned int reads; //number of simultaneous rads ( a write process should wait until this number is 0)
+    // unsigned int owners; //how many clients have the file opened
+    // int fd; //the file descriptor (also used as file id for the clients)
+
+    // char* name = file_name; // the (absolue) name of the file
+	
+	
   int fd;
 
   if(deldes==0)
