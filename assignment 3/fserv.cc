@@ -27,7 +27,7 @@ int clear_descriptor();
 
 #define PORT_NUMBER 28648;
 #define QLENGTH 32;
-
+#define FILE_QUANTITY 10;
 pthread_mutex_t lock;
 
 struct rwexcl_t {
@@ -319,7 +319,7 @@ void add_trailing_spaces(char *dest, int size, int num_of_spaces)
     dest[len + num_of_spaces] = '\0';
 }
 
-int initiate_descriptor()
+int initiate_descriptor() //Can be replaced with an array of struct
 {
   int fd = open("file_table",O_RDWR | O_CREAT,S_IRWXU);
   close(fd);
@@ -333,8 +333,9 @@ int initiate_descriptor()
   }
 }
 
-int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0)
-{
+int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //Rewrite
+{ // for (int i = 0; i < FILE_QUANTITY; i++) {
+  // code block to be executed}
   int fd;
 
   if(deldes==0)
