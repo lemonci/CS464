@@ -244,7 +244,7 @@ void* do_client_f (int sd)
             send(sd,ack1,strlen(ack1),0);
           }
           else
-          {
+          { // check if someone else is reading/writing the file 
 
                 //close(atoi(com_tok[1]));
                 int ddrt = delete_descriptor(atoi(com_tok[1]));
