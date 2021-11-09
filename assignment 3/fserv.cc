@@ -338,45 +338,18 @@ int initiate_descriptor() //Can be replaced with an array of struct
 }
 
 int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //Rewrite
-{ // for (int i = 0; i < FILE_QUANTITY; i++) {
-  // writeAddr = i; break;}
-    // fileArray[writeAddr].mutex = ?;//mutex for the whole structure
-    // fileArray[writeAddr].can_write = ?; //condition variable, name says it all
-    // fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
-    // fileArray[writeAddr].owners = 1; //how many clients have the file opened
-    // fileArray[writeAddr].fd = file_desc; //the file descriptor (also used as file id for the clients)
-    // strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
-	
-	
-  int fd;
-
-  if(deldes==0)
-  {
-    fd = open("file_table", O_RDWR | O_APPEND);
-  }
-  else
-  {
-    //desc_name="file_table_cache";
-    fd=deldes;
-  }
-
-  if(fd==-1)
-  {
-    return -1;
-  }
-  char cfp[100];
-  sprintf(cfp,"%d %s %d ",pid,file_name,file_desc);
-  add_trailing_spaces(cfp,100,(100-(int)strlen(cfp)));
-  write(fd,cfp,strlen(cfp));
-  if(deldes==0)
-  {
-    close(fd);
-  }
-  else
-  {
-    return 0;
-  }
-  return 0;
+{for (int i = 0; i < FILE_QUANTITY; i++) {
+	if (fileArray[i].fd == -1)
+	{
+	writeAddr = i;
+	break;}
+	}
+    fileArray[writeAddr].mutex = ?;//mutex for the whole structure
+    fileArray[writeAddr].can_write = ?; //condition variable, name says it all
+    fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
+    fileArray[writeAddr].owners = 1; //how many clients have the file opened
+    fileArray[writeAddr].fd = file_desc; //the file descriptor (also used as file id for the clients)
+    strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
 }
 
 
