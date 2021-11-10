@@ -144,7 +144,7 @@ void* do_client_f (int sd)
                     int wd = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
                     if(fp!=-1 && wd!=-1)
                     {
-                      snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,fp);
+                      snprintf(ack1, sizeof ack1,"%s %d\n", ackOK, wd);
                       send(sd,ack1,strlen(ack1),0);
                     }
                     else
