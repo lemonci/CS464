@@ -161,7 +161,8 @@ void* do_client_f (int sd)
                   }
                   else
                   { //lock successful, file has been openedn per file_table record
-                    snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,chkfd);
+			        fileArray[identifier].owners ++;
+                    snprintf(ack1, sizeof ack1,"%s %d\n", ackERR, identifier);
                     send(sd,ack1,strlen(ack1),0);
                   }
                   pthread_mutex_unlock(&lock);
