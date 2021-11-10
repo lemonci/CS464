@@ -247,14 +247,17 @@ void* do_client_f (int sd)
           }
           else
           { // check if someone else is reading/writing the file 
-
-				if(fileArray[atoi(com_tok[1])].fp != NULL)
+			int identifier = atoi(com_tok[1]);
+				if (identifier <= FILE_QUANTITY)
 				{
-                close(atoi(com_tok[1]));
-                fileArray[atoi(com_tok[1])].fp = NULL;
-				snprintf("The file has been closed.")
+					if(fileArray[identifier].fp != NULL)
+					{
+					  close(identifier);
+					  fileArray[identifier].fp = NULL;
+					  snprintf("The file has been closed.")
+					}
 				}
-				else 
+				else
           }
 
         } //Add compare if QUIT
