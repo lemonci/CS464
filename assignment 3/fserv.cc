@@ -247,8 +247,8 @@ void* do_client_f (int sd)
           }
           else
           { // check if someone else is reading/writing the file 
-			int identifier = atoi(com_tok[1]);
-				if (identifier <= FILE_QUANTITY)
+			int identifier = atoi(com_tok[1]); //if com_tok[1] is not a string??
+				if (identifier < FILE_QUANTITY && identifier >= 0)
 				{
 					if(fileArray[identifier].fp != NULL)
 					{
