@@ -97,7 +97,7 @@ void* do_client_f (int sd)
     const char* ackFAIL = "FAIL";
     char ack1[1000];
     int n;
-	FILE* fp = NULL;
+    FILE* fp = NULL;
     char* com_tok[129];
     size_t num_tok;
 
@@ -141,12 +141,12 @@ void* do_client_f (int sd)
                   if(identifier==-1) //file doesn't appear in file_table
                   {
                     fp = fopen(com_tok[1], "w+"); //If the file does not exist in the file system, create a file
-					if (fp == NULL)
-					{
-						snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
-						send(sd,ack1,strlen(ack1),0);
-						continue;
-					}
+                    if (fp == NULL)
+                    {
+                        snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
+                        send(sd,ack1,strlen(ack1),0);
+                        continue;
+                    }
                     identifier = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
                     if(identifier !=-1)
                     {
@@ -161,7 +161,7 @@ void* do_client_f (int sd)
                   }
                   else
                   { //lock successful, file has been openedn per file_table record
-			        fileArray[identifier].owners ++;
+                    fileArray[identifier].owners ++;
                     snprintf(ack1, sizeof ack1,"%s %d\n", ackERR, identifier);
                     send(sd,ack1,strlen(ack1),0);
                   }
@@ -220,26 +220,26 @@ void* do_client_f (int sd)
                     {
                         send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
                         continue;
-					}
+                    }
                     else
                     {
-						fileArray[identifier].reads++;
-						if(fileArray[identifier].can_write == -1) //Ask Stefan
-						{
-							fileArray[identifier].reads--;
+                        fileArray[identifier].reads++;
+                        if(fileArray[identifier].can_write == -1) //Ask Stefan
+                        {
+                            fileArray[identifier].reads--;
                             send(sd,"The file is not allowed to read now.",strlen("The file is not allowed to read now."),0);
-						}
-						
-						else
-						{	
+                        }
+                        
+                        else
+                        {   
                             char * buffer = (char *) malloc(length);;
                             fread(buffer, length, 1, fileArray[identifier].fp);
                             printf("%s\n", buffer); //change it to send OK
-							fileArray[identifier].reads--;
-						}
-					}
-				}
-			}
+                            fileArray[identifier].reads--;
+                        }
+                    }
+                }
+            }
         }
         else if(strcmp(com_tok[0],"FWRITE")==0)
         {
@@ -257,18 +257,18 @@ void* do_client_f (int sd)
                 send(sd,"The identifier or bytes is not valid.",strlen("The identifier or bytes is not valid."),0);
                 continue;
             }
-			else
-			{
-			    if (fileArray[identifier].fp == NULL)
-				{
-					send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
+            else
+            {
+                if (fileArray[identifier].fp == NULL)
+                {
+                    send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
                     continue;
-				}
-				else
-				{
-					
-				}
-			}
+                }
+                else
+                {
+                    
+                }
+            }
                 int wtrt = write(atoi(com_tok[1]),com_tok[2],strlen(com_tok[2]));
                 if(wtrt==-1)
                 {
@@ -326,13 +326,13 @@ void* do_client_f (int sd)
 
 int create_file(char* file_name)
 {
-	//This function handles user-program-file-descriptor-table.
-	FILE* fp;
+    //This function handles user-program-file-descriptor-table.
+    FILE* fp;
 
-	printf("-----> File %s created for client",file_name);
+    printf("-----> File %s created for client",file_name);
 
-	//creating the file
-	fp = fopen(file_name, "w+");  //Actually, we don't need the path. We can just create a file with filename.
+    //creating the file
+    fp = fopen(file_name, "w+");  //Actually, we don't need the path. We can just create a file with filename.
     return fp;
 }
 
@@ -353,41 +353,41 @@ int initiate_descriptor() //Can be replaced with an array of struct
 {
     for (int i = 0; i < FILE_QUANTITY; i++) {
         fileArray[i].name = (char *) malloc(80);
-	fileArray[i].fp = NULL;
+    fileArray[i].fp = NULL;
     }
     return 0;
-}	
-	
+}   
+    
 int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) //Rewrite
 {
     int writeAddr = -1;
     for (int i = 0; i < FILE_QUANTITY; i++) {
-	if (fileArray[i].fp == NULL)
-	{
-	writeAddr = i;
-	break;
-	}
+    if (fileArray[i].fp == NULL)
+    {
+    writeAddr = i;
+    break;
+    }
     }
     if (writeAddr == -1) return -1;
-    //else	
+    //else  
     fileArray[writeAddr].mutex = ?;//mutex for the whole structure
     fileArray[writeAddr].can_write = ?; //condition variable, name says it all
     fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
     fileArray[writeAddr].owners = 1; //how many clients have the file opened
     fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
     strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
-	
+    
     return writeAddr;
 }
 
 int check_descriptor(char file_name[80])
 {
     for (int i = 0; i < FILE_QUANTITY; i++) {
-	if (fileArray[i].fp == NULL) continue;
-	if (strcmp(fileArray[i].name, file_name) == 0)
-	{
-	    return i;
-	}
+    if (fileArray[i].fp == NULL) continue;
+    if (strcmp(fileArray[i].name, file_name) == 0)
+    {
+        return i;
+    }
     }
     return -1;
 }
