@@ -254,10 +254,10 @@ void* do_client_f (int sd)
 					{
 					  close(identifier);
 					  fileArray[identifier].fp = NULL;
-					  snprintf("The file has been closed.")
+					  send(sd,"The file has been closed.",strlen("The file has been closed."),0);
 					}
 				}
-				else
+				else send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
           }
 
         } //Add compare if QUIT
