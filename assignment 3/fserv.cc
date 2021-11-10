@@ -16,7 +16,6 @@
 #include "tcp-utils.h"
 
 void* do_client_f (int sd);
-int create_file(char* file_name);
 void add_trailing_spaces(char *dest, int size, int num_of_spaces);
 int initiate_descriptor();
 int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0);
@@ -140,7 +139,7 @@ void* do_client_f (int sd)
                   int chkfd = check_descriptor(com_tok[1]); //check if the file is open per file_table. If zero, not open.
                   if(chkfd==0) //file doesn't appear in file_table
                   {
-                    fp = create_file(com_tok[1]); //BUG need to judge if the file exists in the file system, fp is a *FILE
+                    fp = fopen(file_name, "w+"); //If the file does not exist in the file system, create a file
                     int wd = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
                     if(fp!=-1 && wd!=-1)
                     {
