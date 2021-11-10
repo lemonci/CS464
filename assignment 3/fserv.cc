@@ -285,27 +285,13 @@ void* do_client_f (int sd)
 int create_file(char* file_name)
 {
 	//This function handles user-program-file-descriptor-table.
-	int fp;
+	FILE* fp;
 
-	//cooking the file path and name
-	char *path;
-	path = (char*) malloc(50*sizeof(char));
-	strcat(path,"");
-	strcat(path,file_name);
-	printf("-----> File %s created for client",path);
+	printf("-----> File %s created for client",file_name);
 
 	//creating the file
-	fp = open(path,O_RDWR | O_CREAT,S_IRWXU);  //Actually, we don't need the path. We can just create a file with filename.
-
-  if(fp!=-1)
-  {
+	fp = fopen(file_name, "w+");  //Actually, we don't need the path. We can just create a file with filename.
     return fp;
-  }
-  else
-  {
-    return -1;
-  }
-
 }
 
 void add_trailing_spaces(char *dest, int size, int num_of_spaces)
