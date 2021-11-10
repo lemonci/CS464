@@ -333,7 +333,7 @@ int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) /
     fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
     strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
 	
-    return 0;
+    return writeAddr;
 }
 
 int check_descriptor(char file_name[80])
