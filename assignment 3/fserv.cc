@@ -266,7 +266,17 @@ void* do_client_f (int sd)
                 }
                 else
                 {
-                    
+                    pthread_mutex_lock(&fileArray[identifier].mutex);
+                    while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
+                    /* mut is released while waiting */
+                    /* mut is reacquired */
+                    fileArray[identifier].readers ++;
+                    pthread_mutex_unlock(&fileArray[identifier].mutex);
+                    pthread_mutex_lock(&fileArray[identifier].mutex);
+                    //write
+                    fileArray[identifier].readers --;
+                    if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
+                    pthread_mutex_unlock(&mut);
                 }
             }
                 int wtrt = write(atoi(com_tok[1]),com_tok[2],strlen(com_tok[2]));
