@@ -147,7 +147,8 @@ void* do_client_f (int sd)
 						send(sd,ack1,strlen(ack1),0);
 						continue;
 					}
-                    if(identifier != -1)
+                    identifier = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
+                    if(identifier !=-1)
                     {
                       snprintf(ack1, sizeof ack1,"%s %d\n", ackOK, identifier;
                       send(sd,ack1,strlen(ack1),0);
@@ -160,7 +161,7 @@ void* do_client_f (int sd)
                   }
                   else
                   { //lock successful, file has been openedn per file_table record
-                    snprintf(ack1, sizeof ack1,"%s %d\n", ackERR, identifier);
+                    snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,chkfd);
                     send(sd,ack1,strlen(ack1),0);
                   }
                   pthread_mutex_unlock(&lock);
@@ -168,7 +169,7 @@ void* do_client_f (int sd)
                 }
                 else  //file not locked
                 {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL, errno);
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
                   send(sd,ack1,strlen(ack1),0);
                 }
                 //pthread_mutex_unlock(&lock);
