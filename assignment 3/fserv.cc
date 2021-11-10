@@ -207,36 +207,39 @@ void* do_client_f (int sd)
           }
           else
           { //ADD a condition to judge if the file is being written by other user
-                identifier = atoi(com_tok[1];
-				length = atoi(com_tok[2];
-				if (identifier >= FILE_QUANTITY || identifier < 0)
-				{
-					send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
-					continue;
-				}
-				else
-				{
-					if (fileArray[identifier] == NULL)
-					{
-						send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
-						continue;
+                identifier = atoi(com_tok[1]);
+                length = atoi(com_tok[2]);
+                if (identifier >= FILE_QUANTITY || identifier < 0)
+                {
+                    send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
+                    continue;
+                }
+                else
+                {
+                    if (fileArray[identifier].fp == NULL)
+                    {
+                        send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
+                        continue;
 					}
-					else
-					{
+                    else
+                    {
+						fileArray[identifier].reads++;
 						if(fileArray[identifier].can_write == -1) //Ask Stefan
 						{
-						    send(sd,"The file is not allowed to read now.",strlen("The file is not allowed to read now."),0);
-						    continue;
+							fileArray[identifier].reads--;
+                            send(sd,"The file is not allowed to read now.",strlen("The file is not allowed to read now."),0);
 						}
 						
 						else
 						{	
-							char buffer[100];
-							fread(buffer, length, 1, fileArray[identifier].fp);
-							printf("%s\n", buffer);
+                            char * buffer = (char *) malloc(length);;
+                            fread(buffer, length, 1, fileArray[identifier].fp);
+                            printf("%s\n", buffer); //change it to send OK
+							fileArray[identifier].reads--;
 						}
 					}
 				}
+			}
         }
         else if(strcmp(com_tok[0],"FWRITE")==0)
         {
@@ -247,7 +250,25 @@ void* do_client_f (int sd)
           }
           else
           { // ADD condition to check if the file can be written
-
+            identifier = atoi(com_tok[1]);
+            bytes = atoi(com_tok[2]);
+            if (identifier >= FILE_QUANTITY || identifier < 0 || bytes <= 0)
+            {
+                send(sd,"The identifier or bytes is not valid.",strlen("The identifier or bytes is not valid."),0);
+                continue;
+            }
+			else
+			{
+			    if (fileArray[identifier].fp == NULL)
+				{
+					send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
+                    continue;
+				}
+				else
+				{
+					
+				}
+			}
                 int wtrt = write(atoi(com_tok[1]),com_tok[2],strlen(com_tok[2]));
                 if(wtrt==-1)
                 {
