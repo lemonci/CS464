@@ -248,18 +248,13 @@ void* do_client_f (int sd)
           else
           { // check if someone else is reading/writing the file 
 
-                FILE* ddrt = fileArray[i].fp;
-                if(ddrt==0)
-                {
-                  close(atoi(com_tok[1]));
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,ddrt);
-                  send(sd,ack1,strlen(ack1),0);
-                }
-                else
-                {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,ddrt);
-                  send(sd,ack1,strlen(ack1),0);
-                }
+				if(fileArray[atoi(com_tok[1])].fp != NULL)
+				{
+                close(atoi(com_tok[1]));
+                fileArray[atoi(com_tok[1])].fp = NULL;
+				snprintf("The file has been closed.")
+				}
+				else 
           }
 
         } //Add compare if QUIT
