@@ -138,7 +138,7 @@ void* do_client_f (int sd)
                 if(aclck==0) //file can be locked
                 {
                   int chkfd = check_descriptor(com_tok[1]); //check if the file is open per file_table. If zero, not open.
-                  if(chkfd==0) //file doesn't appear in file_table
+                  if(chkfd==-1) //file doesn't appear in file_table
                   {
                     fp = fopen(file_name, "w+"); //If the file does not exist in the file system, create a file
                     int wd = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
