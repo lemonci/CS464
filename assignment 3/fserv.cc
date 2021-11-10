@@ -347,14 +347,3 @@ int check_descriptor(char file_name[80])
     }
     return -1;
 }
-
-int delete_descriptor(int file_desc)
-{
-    for (int i = 0; i < FILE_QUANTITY; i++) {
-        if (fileArray[i].fd == file_desc){
-	    fileArray[i].fd = -1;
-	    return 0;
-	}
-    }
-    return -1;
-}
