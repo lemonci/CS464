@@ -1,4 +1,5 @@
 #include <sys/wait.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <signal.h>
 #include <pthread.h>
@@ -247,8 +248,7 @@ void* do_client_f (int sd)
           else
           { // check if someone else is reading/writing the file 
 
-                //close(atoi(com_tok[1]));
-                int ddrt = delete_descriptor(atoi(com_tok[1]));
+                FILE* ddrt = fileArray[i].fp;
                 if(ddrt==0)
                 {
                   close(atoi(com_tok[1]));
@@ -340,10 +340,10 @@ int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) /
 int check_descriptor(char file_name[80])
 {
     for (int i = 0; i < FILE_QUANTITY; i++) {
-	if (fileArray[i].fd == -1) continue;
+	if (fileArray[i].fp == NULL) continue;
 	if (strcmp(fileArray[i].name, file_name) == 0)
 	{
-	    return fileArray[i].fd;
+	    return i;
 	}
     }
     return -1;
