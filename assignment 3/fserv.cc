@@ -34,7 +34,7 @@ struct fileRecord {
     pthread_cond_t can_write; //condition variable, name says it all
     unsigned int reads; //number of simultaneous rads ( a write process should wait until this number is 0)
     unsigned int owners; //how many clients have the file opened
-    FILE* fd; //the file descriptor (also used as file id for the clients)
+    FILE* fp; //the file descriptor (also used as file id for the clients)
 
     char* name; // the (absolue) name of the file
 };
@@ -324,7 +324,7 @@ int initiate_descriptor() //Can be replaced with an array of struct
 {
     for (int i = 0; i < FILE_QUANTITY; i++) {
         fileArray[i].name = (char *) malloc(80);
-	fileArray[i].fd = -1;
+	fileArray[i].fp = NULL;
     }
     return 0;
 }	
