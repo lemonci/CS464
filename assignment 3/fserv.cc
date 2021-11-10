@@ -141,10 +141,10 @@ void* do_client_f (int sd)
                   if(chkfd==-1) //file doesn't appear in file_table
                   {
                     fp = fopen(file_name, "w+"); //If the file does not exist in the file system, create a file
-                    int wd = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
+                    int identifier = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
                     if(fp!=-1 && wd!=-1)
                     {
-                      snprintf(ack1, sizeof ack1,"%s %d\n", ackOK, wd);
+                      snprintf(ack1, sizeof ack1,"%s %d\n", ackOK, identifier;
                       send(sd,ack1,strlen(ack1),0);
                     }
                     else
