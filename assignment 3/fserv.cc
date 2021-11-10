@@ -96,8 +96,8 @@ void* do_client_f (int sd)
     const char* ackERR = "ERR";
     const char* ackFAIL = "FAIL";
     char ack1[1000];
-    int n
-	*FILE fp = NULL;
+    int n;
+	FILE* fp = NULL;
     char* com_tok[129];
     size_t num_tok;
 
