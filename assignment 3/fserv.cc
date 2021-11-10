@@ -34,7 +34,7 @@ struct fileRecord {
     pthread_cond_t can_write; //condition variable, name says it all
     unsigned int reads; //number of simultaneous rads ( a write process should wait until this number is 0)
     unsigned int owners; //how many clients have the file opened
-    int fd; //the file descriptor (also used as file id for the clients)
+    FILE* fd; //the file descriptor (also used as file id for the clients)
 
     char* name; // the (absolue) name of the file
 };
@@ -329,18 +329,6 @@ int initiate_descriptor() //Can be replaced with an array of struct
     return 0;
 }	
 	
-  int fd = open("file_table",O_RDWR | O_CREAT,S_IRWXU);
-  close(fd);
-  if(fd!=-1)
-  {
-    return 0;
-  }
-  else
-  {
-    return -1;
-  }
-}
-
 int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0) //Rewrite
 {
     int writeAddr = -1;
