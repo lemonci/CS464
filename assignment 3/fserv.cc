@@ -96,7 +96,8 @@ void* do_client_f (int sd)
     const char* ackERR = "ERR";
     const char* ackFAIL = "FAIL";
     char ack1[1000];
-    int n,fp;
+    int n
+	*FILE fp = NULL;
     char* com_tok[129];
     size_t num_tok;
 
@@ -139,7 +140,7 @@ void* do_client_f (int sd)
                   int chkfd = check_descriptor(com_tok[1]); //check if the file is open per file_table. If zero, not open.
                   if(chkfd==0) //file doesn't appear in file_table
                   {
-                    fp = create_file(com_tok[1]); //BUG need to judge if the file exists in the file system
+                    fp = create_file(com_tok[1]); //BUG need to judge if the file exists in the file system, fp is a *FILE
                     int wd = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
                     if(fp!=-1 && wd!=-1)
                     {
