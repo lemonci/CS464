@@ -247,17 +247,18 @@ void* do_client_f (int sd)
           }
           else
           { // check if someone else is reading/writing the file 
-			int identifier = atoi(com_tok[1]); //if com_tok[1] is not a string??
-				if (identifier < FILE_QUANTITY && identifier >= 0)
-				{
-					if(fileArray[identifier].fp != NULL)
-					{
-					  close(identifier);
-					  fileArray[identifier].fp = NULL;
-					  send(sd,"The file has been closed.",strlen("The file has been closed."),0);
-					}
-				}
-				else send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
+            int identifier = atoi(com_tok[1]); //if com_tok[1] is not a string??
+                if (identifier < FILE_QUANTITY && identifier >= 0)
+                {
+                    if(fileArray[identifier].fp != NULL)
+                    {
+                      close(identifier);
+                      fileArray[identifier].fp = NULL;
+                      send(sd,"The file has been closed.",strlen("The file has been closed."),0);
+                    }
+                    else send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
+                }
+                else send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
           }
 
         } //Add compare if QUIT
