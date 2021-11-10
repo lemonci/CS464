@@ -185,15 +185,15 @@ void* do_client_f (int sd)
           }
           else
           { //if FSEEK syntax is correct
-                int skrt = lseek(atoi(com_tok[1]), atoi(com_tok[2]), SEEK_CUR);
-                if(skrt==-1)
+                int skrt = fseek(fileArray[atoi(com_tok[1])].fp, atoi(com_tok[2]), SEEK_CUR);
+                if(skrt==0)
                 {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,ENOENT);
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                   send(sd,ack1,strlen(ack1),0);
                 }
                 else
                 {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,ENOENT);
                   send(sd,ack1,strlen(ack1),0);
                 }
           }
