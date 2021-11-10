@@ -207,20 +207,36 @@ void* do_client_f (int sd)
           }
           else
           { //ADD a condition to judge if the file is being written by other user
-
-                char rdbyts[1000];
-                int rdrt = read(atoi(com_tok[1]), rdbyts,atoi(com_tok[2]));
-                if(rdrt==-1)
-                {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,-1);
-                  send(sd,ack1,strlen(ack1),0);
-                }
-                else
-                {
-                  sprintf(ack1,"%s %d %s\n", ackOK,rdrt,rdbyts);
-                  send(sd,ack1,strlen(ack1),0);
-                }
-          }
+                identifier = atoi(com_tok[1];
+				length = atoi(com_tok[2];
+				if (identifier >= FILE_QUANTITY || identifier < 0)
+				{
+					send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
+					continue;
+				}
+				else
+				{
+					if (fileArray[identifier] == NULL)
+					{
+						send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
+						continue;
+					}
+					else
+					{
+						if(fileArray[identifier].can_write == -1) //Ask Stefan
+						{
+						    send(sd,"The file is not allowed to read now.",strlen("The file is not allowed to read now."),0);
+						    continue;
+						}
+						
+						else
+						{	
+							char buffer[100];
+							fread(buffer, length, 1, fileArray[identifier].fp);
+							printf("%s\n", buffer);
+						}
+					}
+				}
         }
         else if(strcmp(com_tok[0],"FWRITE")==0)
         {
