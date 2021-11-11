@@ -251,7 +251,7 @@ void* do_client_f (int sd)
           else
           { // ADD condition to check if the file can be written
             identifier = atoi(com_tok[1]);
-            bytes = atoi(com_tok[2]);
+            bytes = com_tok[2];
             if (identifier >= FILE_QUANTITY || identifier < 0 || bytes <= 0)
             {
                 send(sd,"The identifier or bytes is not valid.",strlen("The identifier or bytes is not valid."),0);
@@ -273,7 +273,7 @@ void* do_client_f (int sd)
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
-                    //write
+                    fwrite(bytes , 1 , sizeof(bytes) , fileArray[identifier].fp ); //write the file
                     fileArray[identifier].readers --;
                     if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                     pthread_mutex_unlock(&mut);
