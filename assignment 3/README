@@ -1,0 +1,43 @@
+Authors:           Wing Shu Leung,       Monica Li
+Emails:            wleung19@ubishops.ca, mli@cs.ubishops.ca
+Student ID number: 002272638,            002285699
+===================================================================================================
+Assignment 3 - Build a Shell server & a File server
+--------------------------------------------------------------------------------------------------
+This program is composed of 2 servers. 
+The shell server accept every shell command from clients,performs the command and sends back to 
+client an acknowledgement of the command. If the command fails or has an error, it will send an 
+equivalent message back to the client. The server remembers the last command call from client. 
+The client only needs to call 'CPRINT' to get the output and the message of the previous call.
+
+The file server accept every file command from clients, performs the command and sends back to client an acknowledgement of the command. If the command fails or has an error, it will send an 
+equivalent message back to the client. Multiple clients can read simultaneously on the same file. 
+Only 1 client can write per time on the same file. Delay option is available.  
+--------------------------------------------------------------------------------------------------
+The program is written in the C language and the code is stored in a .cc file for compatibility 
+purposes. Be aware that some libraries used in the program are only available in the Linux/Unix 
+system.
+--------------------------------------------------------------------------------------------------
+The program will run in any current POSIX system with C/C++  compiler. Use Linux dirtriubtions or
+Mac OS with Xcode and Xcode command line installed.
+--------------------------------------------------------------------------------------------------
+To use the program -> call 'make' & run the executable file './shfd'. 
+Default port for shell server is 9002 & file server is 9001. 
+The following commands works when executing shfd file:
+-f (int port number) : change the file server port number
+-s (int port number) : change the shell server port number
+-d                   : to not detach from terminal
+-D                   : to delay the write & read 
+-v                   : for verbose (open DEBUG mode)
+The program does not require installation. Use 'make clean && make' to remake the executable file. 
+===================================================================================================
+OVERVIEW OF THE PROGRAM
+
+ 
+
+===================================================================================================
+TESTING RESULTS
+
+ 
+
+===================================================================================================
