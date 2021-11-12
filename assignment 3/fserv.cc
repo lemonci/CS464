@@ -224,16 +224,16 @@ void* do_client_f (int sd)
                     else
                     {
                         pthread_mutex_lock(&fileArray[identifier].mutex);
-						fileArray[identifier].reads++;
-						pthread_mutex_unlock(&fileArray[identifier].mutex);
-						char * buffer = (char *) malloc(length);;
-						fread(buffer, length, 1, fileArray[identifier].fp);
-						printf("%s\n", buffer); //change it to send OK
+                        fileArray[identifier].reads++;
+                        pthread_mutex_unlock(&fileArray[identifier].mutex);
+                        char * buffer = (char *) malloc(length);;
+                        fread(buffer, length, 1, fileArray[identifier].fp);
+                        printf("%s\n", buffer); //change it to send OK
                         pthread_mutex_lock(&fileArray[identifier].mutex);
-						fileArray[identifier].reads--;
-						pthread_mutex_unlock(&fileArray[identifier].mutex);
-						
-						//if fileArray[identifier].reads == 0 broadcast
+                        fileArray[identifier].reads--;
+                        pthread_mutex_unlock(&fileArray[identifier].mutex);
+                        
+                        //if fileArray[identifier].reads == 0 broadcast
                     }
                 }
             }
