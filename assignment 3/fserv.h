@@ -15,11 +15,10 @@
 #include <fcntl.h>
 #include <iostream>
 
-void* do_client_f (int);
-void add_trailing_spaces(char *, int, int);
-int initiate_descriptor(void);
-int write_descriptor(int, char*,FILE*,int);
-int check_descriptor(char *);
-int create_file(char*);
-int delete_descriptor(int);
-int clear_descriptor(void);
+void* do_client_f (int sd);
+void add_trailing_spaces(char *dest, int size, int num_of_spaces);
+int initiate_descriptor();
+int write_descriptor(int pid, char*,int file_desc,int deldes);
+int check_descriptor(char*);
+int delete_descriptor(int file_desc);
+int clear_descriptor();
