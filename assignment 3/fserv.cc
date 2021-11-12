@@ -43,6 +43,11 @@ struct fileRecord fileArray[FILE_QUANTITY];
 
 int main (int argc, char** argv)
 {
+  struct cmdArgs{
+	  bool delay = false;
+  };
+  
+
   int port = PORT_NUMBER;
   int qlen = QLENGTH;
 
@@ -228,12 +233,16 @@ void* do_client_f (int sd)
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
                         char * buffer = (char *) malloc(length);;
                         fread(buffer, length, 1, fileArray[identifier].fp);
-                        printf("%s\n", buffer); //change it to send OK
+                        printf("%s\n", buffer);
                         pthread_mutex_lock(&fileArray[identifier].mutex);
                         fileArray[identifier].reads--;
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
                         
-                        //if fileArray[identifier].reads == 0 broadcast
+                        if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
+						
+						if (cmdArgs.delay == True) sleep(5);
+						snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+						send(sd,ack1,strlen(ack1),0)
                     }
                 }
             }
@@ -246,7 +255,7 @@ void* do_client_f (int sd)
             send(sd,ack1,strlen(ack1),0);
           }
           else
-          { // Mutex: ADD condition to check if the file can be written
+          {
             identifier = atoi(com_tok[1]);
             bytes = com_tok[2];
             if (identifier >= FILE_QUANTITY || identifier < 0 || bytes <= 0)
@@ -265,8 +274,6 @@ void* do_client_f (int sd)
                 {
                     pthread_mutex_lock(&fileArray[identifier].mutex);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
-                    /* mut is released while waiting */
-                    /* mut is reacquired */
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
@@ -274,21 +281,15 @@ void* do_client_f (int sd)
                     fileArray[identifier].readers --;
                     if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                     pthread_mutex_unlock(&mut);
+					
+					if (cmdArgs.delay == True) sleep(5);
+					snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                    send(sd,ack1,strlen(ack1),0);
                 }
             }
-                int wtrt = write(atoi(com_tok[1]),com_tok[2],strlen(com_tok[2]));
-                if(wtrt==-1)
-                {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackERR,-1);
-                  send(sd,ack1,strlen(ack1),0);
-                }
-                else
-                {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
-                  send(sd,ack1,strlen(ack1),0);
-                }
-            }
+          }
         }
+		
         else if(strcmp(com_tok[0],"FCLOSE")==0)
         {
           if(num_tok!=3)
@@ -303,7 +304,7 @@ void* do_client_f (int sd)
                 {
                     if(fileArray[identifier].fp != NULL)
                     {
-                      close(identifier);
+                      fclose(fileArray[identifier].fp);
                       fileArray[identifier].fp = NULL;
                       send(sd,"The file has been closed.",strlen("The file has been closed."),0);
                     }
@@ -382,7 +383,7 @@ int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) /
     fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
     fileArray[writeAddr].owners = 1; //how many clients have the file opened
     fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
-    strcpy(fileArray[writeAddr].name, file_name); // the (absolue) name of the file
+    strncpy(fileArray[writeAddr].name, file_name, 200); // the (absolue) name of the file
     
     return writeAddr;
 }
