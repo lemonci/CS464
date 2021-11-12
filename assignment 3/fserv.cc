@@ -19,8 +19,8 @@
 void* do_client_f (int sd);
 void add_trailing_spaces(char *dest, int size, int num_of_spaces);
 int initiate_descriptor();
-int write_descriptor(int pid, char file_name[80],int file_desc,int deldes=0);
-int check_descriptor(char file_name[80]);
+int write_descriptor(int pid, char*,int file_desc,int deldes);
+int check_descriptor(char*);
 int delete_descriptor(int file_desc);
 int clear_descriptor();
 
