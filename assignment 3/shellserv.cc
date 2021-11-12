@@ -14,6 +14,7 @@
 
 #include "tokenize.h"
 #include "tcp-utils.h"
+#include "fserv.h"
 //#define DEBUG
 
 /***
@@ -158,7 +159,7 @@ int run_it (const char* command, char* const argv[], char* const envp[], const c
 }
 
 
-void* do_client (int sd, char** envp){
+void* do_client_s (int sd, char** envp){
     const int ALEN = 256;
     char req[ALEN];
     const char* ack = "ACK: ";
@@ -334,19 +335,35 @@ int main (int argc, char** argv, char** envp){
     parse_arguments(argc, argv, &cmd);
 
     //fork (from shell server to file server)
-    //
-    //
-    //
-
-    //binding the socking passively
-    msock = passivesocket(cmd.port_num_s, qlen);
-    if (msock < 0){
-        perror("passivesocket");
-        return 1;
+    pid_t serv_pid;
+    serv_pid = fork();
+    if (serv_pid < 0){
+        perror("file serv did not fork:");
+        exit(EXIT_FAILURE);
     }
-    printf("Server up and listening on port %d.\n", cmd.port_num_s);
-    printf("detached mode: %d.\n", cmd.nodetach);
-    
+    if (serv_pid == 0){
+        //file server will bind its socket
+        //binding the socking passively
+        msock = passivesocket(cmd.port_num_f, qlen);
+        if (msock < 0){
+            perror("passivesocket");
+            return 1;
+        }
+        printf("Server up and listening on port %d.\n", cmd.port_num_f);
+        printf("detached mode: %d.\n", cmd.nodetach);
+        
+    }
+    else{
+        //shell server will bind its socket
+        //binding the socking passively
+        msock = passivesocket(cmd.port_num_s, qlen);
+        if (msock < 0){
+            perror("passivesocket");
+            return 1;
+        }
+        printf("Server up and listening on port %d.\n", cmd.port_num_s);
+        printf("detached mode: %d.\n", cmd.nodetach);
+    }
 
 
     //creating the daemon
@@ -386,7 +403,7 @@ int main (int argc, char** argv, char** envp){
         
         int file_outErr = dup(x_fd2);  //for fd(1 &2)
        
-        if ( x_fd< 0 | x_fd2 < 0| file_outErr < 0)
+        if ( x_fd< 0 || x_fd2 < 0 || file_outErr < 0)
             printf("Error at the detach");
 
         //set new file permisssion created by daemon
@@ -419,9 +436,17 @@ int main (int argc, char** argv, char** envp){
         }
 
         //create thread + execute in do_client:
-        if ( pthread_create(&tt, &ta, (void* (*) (void*)) do_client, (void*) ssock) != 0){
-            perror("pthread_create");
+        if (serv_pid == 0){
+            if ( pthread_create(&tt, &ta, (void* (*) (void*)) do_client_f, (void*) ssock) != 0){
+            perror("pthread_create_f");
             return 1;
+            }
+        }
+        else{
+            if ( pthread_create(&tt, &ta, (void* (*) (void*)) do_client_s, (void*) ssock) != 0){
+                perror("pthread_create_s");
+                return 1;
+            }
         }
         //we start accepting other clients (main thread continues with the loop)
     }
