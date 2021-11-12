@@ -19,11 +19,10 @@
 void* do_client_f (int sd);
 void add_trailing_spaces(char *dest, int size, int num_of_spaces);
 int initiate_descriptor();
-int write_descriptor(int pid, char* file_name,FILE* file_desc,int deldes);
-int check_descriptor(char* file_name);
+int write_descriptor(int pid, char*,int file_desc,int deldes);
+int check_descriptor(char*);
 int delete_descriptor(int file_desc);
 int clear_descriptor();
-int create_file(char* file_name);
 
 #define PORT_NUMBER 28648;
 #define QLENGTH 32;
@@ -224,20 +223,17 @@ void* do_client_f (int sd)
                     }
                     else
                     {
-                        fileArray[identifier].reads++;
-                        if(fileArray[identifier].can_write == -1) //Ask Stefan
-                        {
-                            fileArray[identifier].reads--;
-                            send(sd,"The file is not allowed to read now.",strlen("The file is not allowed to read now."),0);
-                        }
-                        
-                        else
-                        {   
-                            char * buffer = (char *) malloc(length);;
-                            fread(buffer, length, 1, fileArray[identifier].fp);
-                            printf("%s\n", buffer); //change it to send OK
-                            fileArray[identifier].reads--;
-                        }
+                        pthread_mutex_lock(&fileArray[identifier].mutex);
+						fileArray[identifier].reads++;
+						pthread_mutex_unlock(&fileArray[identifier].mutex);
+						char * buffer = (char *) malloc(length);;
+						fread(buffer, length, 1, fileArray[identifier].fp);
+						printf("%s\n", buffer); //change it to send OK
+                        pthread_mutex_lock(&fileArray[identifier].mutex);
+						fileArray[identifier].reads--;
+						pthread_mutex_unlock(&fileArray[identifier].mutex);
+						
+						//if fileArray[identifier].reads == 0 broadcast
                     }
                 }
             }
@@ -250,7 +246,7 @@ void* do_client_f (int sd)
             send(sd,ack1,strlen(ack1),0);
           }
           else
-          { // ADD condition to check if the file can be written
+          { // Mutex: ADD condition to check if the file can be written
             identifier = atoi(com_tok[1]);
             bytes = com_tok[2];
             if (identifier >= FILE_QUANTITY || identifier < 0 || bytes <= 0)
@@ -381,8 +377,8 @@ int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) /
     }
     if (writeAddr == -1) return -1;
     //else  
-    fileArray[writeAddr].mutex = ?;//mutex for the whole structure
-    fileArray[writeAddr].can_write = ?; //condition variable, name says it all
+    pthread_mutex_init(&fileArray[writeAddr].mutex);//mutex for the whole structure
+    pthread_cond_init(&fileArray[writeAddr].can_write);
     fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
     fileArray[writeAddr].owners = 1; //how many clients have the file opened
     fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
