@@ -335,7 +335,7 @@ int main (int argc, char** argv, char** envp){
     //parse the command line
     parse_arguments(argc, argv, &cmd);
     if (cmd.nodetach == false){
-        x_fd2 = open(logfile, O_WRONLY | O_CREAT | O_APPEND); 
+        x_fd2 = open(logfile, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR|S_IWUSR); 
     }
 
     //fork (from shell server to file server)
