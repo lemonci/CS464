@@ -10,7 +10,8 @@ client an acknowledgement of the command. If the command fails or has an error, 
 equivalent message back to the client. The server remembers the last command call from client. 
 The client only needs to call 'CPRINT' to get the output and the message of the previous call.
 
-The file server accept every file command from clients, performs the command and sends back to client an acknowledgement of the command. If the command fails or has an error, it will send an 
+The file server accept every file command from clients, performs the command and sends back to 
+client an acknowledgement of the command. If the command fails or has an error, it will send an 
 equivalent message back to the client. Multiple clients can read simultaneously on the same file. 
 Only 1 client can write per time on the same file. Delay option is available.  
 --------------------------------------------------------------------------------------------------
