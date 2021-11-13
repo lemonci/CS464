@@ -255,7 +255,8 @@ void* do_client_f (int sd)
           else
           {
             int identifier = atoi(com_tok[1]);
-            char* bytes = com_tok[2];
+			char bytes[1000];
+			strncpy(bytes, com_tok[2], 1000);
             if (identifier >= FILE_QUANTITY || identifier < 0)
             {
                 send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
@@ -270,7 +271,7 @@ void* do_client_f (int sd)
                 }
                 else
                 {
-					printf("%s", bytes);
+					//printf("%s", bytes);
 					pthread_mutex_lock(&fileArray[identifier].mutex);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
                     fileArray[identifier].readers ++;
