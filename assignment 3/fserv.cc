@@ -19,20 +19,20 @@
 void* do_client_f (int sd);
 void add_trailing_spaces(char *dest, int size, int num_of_spaces);
 int initiate_descriptor();
-int write_descriptor(int pid, char*,int file_desc,int deldes);
+int write_descriptor(int pid, char*,FILE* file_desc,int deldes);
 int check_descriptor(char*);
 int delete_descriptor(int file_desc);
 int clear_descriptor();
 
-#define PORT_NUMBER 28648;
-#define QLENGTH 32;
-#define FILE_QUANTITY 10;
+#define PORT_NUMBER 28648
+#define QLENGTH 32
+#define FILE_QUANTITY 10
 pthread_mutex_t lock;
 
 struct fileRecord {
     pthread_mutex_t mutex; //mutex for the whole structure
     pthread_cond_t can_write; //condition variable, name says it all
-    unsigned int reads; //number of simultaneous rads ( a write process should wait until this number is 0)
+    unsigned int readers; //number of simultaneous rads ( a write process should wait until this number is 0)
     unsigned int owners; //how many clients have the file opened
     FILE* fp; //the file descriptor (also used as file id for the clients)
 
@@ -41,11 +41,12 @@ struct fileRecord {
 
 struct fileRecord fileArray[FILE_QUANTITY];
 
+struct cmdArgs{
+  bool delay = false;
+};
+struct cmdArgs cmd;
 int main (int argc, char** argv)
 {
-  struct cmdArgs{
-	  bool delay = false;
-  };
   
 
   int port = PORT_NUMBER;
@@ -152,10 +153,10 @@ void* do_client_f (int sd)
                         send(sd,ack1,strlen(ack1),0);
                         continue;
                     }
-                    identifier = write_descriptor(getpid(),com_tok[1],fp); //write file information to file_table
+                    identifier = write_descriptor(getpid(),com_tok[1],fp, 0); //write file information to file_table
                     if(identifier !=-1)
                     {
-                      snprintf(ack1, sizeof ack1,"%s %d\n", ackOK, identifier;
+                      snprintf(ack1, sizeof ack1,"%s %d\n", ackOK, identifier);
                       send(sd,ack1,strlen(ack1),0);
                     }
                     else
@@ -212,8 +213,8 @@ void* do_client_f (int sd)
           }
           else
           { //ADD a condition to judge if the file is being written by other user
-                identifier = atoi(com_tok[1]);
-                length = atoi(com_tok[2]);
+                int identifier = atoi(com_tok[1]);
+                int length = atoi(com_tok[2]);
                 if (identifier >= FILE_QUANTITY || identifier < 0)
                 {
                     send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
@@ -229,20 +230,20 @@ void* do_client_f (int sd)
                     else
                     {
                         pthread_mutex_lock(&fileArray[identifier].mutex);
-                        fileArray[identifier].reads++;
+                        fileArray[identifier].readers++;
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
                         char * buffer = (char *) malloc(length);;
                         fread(buffer, length, 1, fileArray[identifier].fp);
                         printf("%s\n", buffer);
                         pthread_mutex_lock(&fileArray[identifier].mutex);
-                        fileArray[identifier].reads--;
+                        fileArray[identifier].readers--;
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
                         
                         if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
 						
-						if (cmdArgs.delay == True) sleep(5);
+						if (cmd.delay == true) sleep(5);
 						snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
-						send(sd,ack1,strlen(ack1),0)
+						send(sd,ack1,strlen(ack1),0);
                     }
                 }
             }
@@ -256,11 +257,11 @@ void* do_client_f (int sd)
           }
           else
           {
-            identifier = atoi(com_tok[1]);
-            bytes = com_tok[2];
-            if (identifier >= FILE_QUANTITY || identifier < 0 || bytes <= 0)
+            int identifier = atoi(com_tok[1]);
+            char* bytes = com_tok[2];
+            if (identifier >= FILE_QUANTITY || identifier < 0)
             {
-                send(sd,"The identifier or bytes is not valid.",strlen("The identifier or bytes is not valid."),0);
+                send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
                 continue;
             }
             else
@@ -277,12 +278,12 @@ void* do_client_f (int sd)
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
-                    fwrite(bytes , 1 , sizeof(bytes) , fileArray[identifier].fp ); //write the file
+                    fwrite(&bytes , 1 , sizeof(bytes) , fileArray[identifier].fp ); //write the file
                     fileArray[identifier].readers --;
                     if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
-                    pthread_mutex_unlock(&mut);
+                    pthread_mutex_unlock(&fileArray[identifier].mutex);
 					
-					if (cmdArgs.delay == True) sleep(5);
+					if (cmd.delay == true) sleep(5);
 					snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                     send(sd,ack1,strlen(ack1),0);
                 }
@@ -332,7 +333,7 @@ void* do_client_f (int sd)
 }
 
 
-int create_file(char* file_name)
+FILE* create_file(char* file_name)
 {
     //This function handles user-program-file-descriptor-table.
     FILE* fp;
@@ -380,7 +381,7 @@ int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) /
     //else  
     pthread_mutex_init(&fileArray[writeAddr].mutex);//mutex for the whole structure
     pthread_cond_init(&fileArray[writeAddr].can_write);
-    fileArray[writeAddr].reads = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
+    fileArray[writeAddr].readers = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
     fileArray[writeAddr].owners = 1; //how many clients have the file opened
     fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
     strncpy(fileArray[writeAddr].name, file_name, 200); // the (absolue) name of the file
