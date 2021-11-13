@@ -220,20 +220,23 @@ void* do_client_f (int sd)
                 int length = atoi(com_tok[2]);
                 if (identifier >= FILE_QUANTITY || identifier < 0)
                 {
-                    send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
+                    send(sd,"The identifier is not valid.\n",strlen("The identifier is not valid.\n"),0);
                     continue;
                 }
                 else
                 {
                     if (fileArray[identifier].fp == NULL)
                     {
-                        send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
+                        send(sd,"The identifier doesn't represent an opened file.\n",strlen("The identifier doesn't represent an opened file.\n"),0);
                         continue;
                     }
                     else
                     {
                         pthread_mutex_lock(&fileArray[identifier].mutex);
                         fileArray[identifier].readers++;
+                        if (cmd.delay == true) sleep(5);
+                        snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                        send(sd,ack1,strlen(ack1),0);
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
                         char * buffer = (char *) malloc(length);;
                         fread(buffer, length, 1, fileArray[identifier].fp);
@@ -279,6 +282,9 @@ void* do_client_f (int sd)
                 {
                     //printf("%s", bytes);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
+                    if (cmd.delay == true) sleep(5);
+                    snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                    send(sd,ack1,strlen(ack1),0);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
@@ -287,10 +293,6 @@ void* do_client_f (int sd)
                     fileArray[identifier].readers --;
                     if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
-                    
-                    if (cmd.delay == true) sleep(5);
-                    snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
-                    send(sd,ack1,strlen(ack1),0);
                 }
             }
           }
@@ -312,18 +314,18 @@ void* do_client_f (int sd)
                     {
                       fclose(fileArray[identifier].fp);
                       fileArray[identifier].fp = NULL;
-                      send(sd,"The file has been closed.",strlen("The file has been closed."),0);
+                      send(sd,"The file has been closed.\n",strlen("The file has been closed.\n"),0);
                     }
-                    else send(sd,"The identifier doesn't represent an opened file.",strlen("The identifier doesn't represent an opened file."),0);
+                    else send(sd,"The identifier doesn't represent an opened file.\n",strlen("The identifier doesn't represent an opened file.\n"),0);
                 }
-                else send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
+                else send(sd,"The identifier is not valid.\n",strlen("The identifier is not valid.\n"),0);
           }
 
         } //Add compare if QUIT
         else
         {
           send(sd,ack,strlen(ack),0);
-          send(sd,"I hope that's not a valid command for me.",strlen("I hope that's not a valid command for me."),0);
+          send(sd,"I hope that's not a valid command for me.\n",strlen("I hope that's not a valid command for me.\n"),0);
           send(sd,req,strlen(req),0);
           send(sd,"\n",1,0);
         }
