@@ -144,17 +144,17 @@ void* do_client_f (int sd)
                   if(identifier==-1) //file doesn't appear in file_table
                   {
                     fp = fopen(com_tok[1], "r+");
-					//If the file does not exist in the file system, create a file
+                    //If the file does not exist in the file system, create a file
                     if (fp == NULL)
                     {
                         fp = fopen(com_tok[1], "w+");
-						if (fp == NULL)
-						{
-							snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
-							send(sd,ack1,strlen(ack1),0);
-							continue;
-						}
-						else send(sd,ack1,strlen(ack1),0);
+                        if (fp == NULL)
+                        {
+                            snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
+                            send(sd,ack1,strlen(ack1),0);
+                            continue;
+                        }
+                        else send(sd,ack1,strlen(ack1),0);
                     }
                     identifier = write_descriptor(getpid(),com_tok[1],fp, 0); //write file information to file_table
                     if(identifier !=-1)
@@ -243,10 +243,10 @@ void* do_client_f (int sd)
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
                         
                         if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
-						
-						if (cmd.delay == true) sleep(5);
-						snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
-						send(sd,ack1,strlen(ack1),0);
+                        
+                        if (cmd.delay == true) sleep(5);
+                        snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                        send(sd,ack1,strlen(ack1),0);
                     }
                 }
             }
@@ -261,8 +261,8 @@ void* do_client_f (int sd)
           else
           {
             int identifier = atoi(com_tok[1]);
-			char bytes[1000];
-			strncpy(bytes, com_tok[2], strlen(com_tok[2]));
+            char bytes[1000];
+            strncpy(bytes, com_tok[2], strlen(com_tok[2]));
             if (identifier >= FILE_QUANTITY || identifier < 0)
             {
                 send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
@@ -277,8 +277,8 @@ void* do_client_f (int sd)
                 }
                 else
                 {
-					//printf("%s", bytes);
-					pthread_mutex_lock(&fileArray[identifier].mutex);
+                    //printf("%s", bytes);
+                    pthread_mutex_lock(&fileArray[identifier].mutex);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
@@ -287,15 +287,15 @@ void* do_client_f (int sd)
                     fileArray[identifier].readers --;
                     if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
-					
-					if (cmd.delay == true) sleep(5);
-					snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                    
+                    if (cmd.delay == true) sleep(5);
+                    snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                     send(sd,ack1,strlen(ack1),0);
                 }
             }
           }
         }
-		
+        
         else if(strcmp(com_tok[0],"FCLOSE")==0)
         {
           if(num_tok!=2)
