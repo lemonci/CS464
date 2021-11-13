@@ -247,7 +247,7 @@ void* do_client_f (int sd)
                         
                         if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                         
-                        if (cmd.delay == true) sleep(5);
+                        if (cmd.delay == true) sleep(30);
                         snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                         send(sd,ack1,strlen(ack1),0);
                     }
@@ -282,7 +282,7 @@ void* do_client_f (int sd)
                 {
                     //printf("%s", bytes);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
-                    if (cmd.delay == true) sleep(5);
+                    if (cmd.delay == true) sleep(30);
                     snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                     send(sd,ack1,strlen(ack1),0);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
