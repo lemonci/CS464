@@ -47,8 +47,6 @@ struct cmdArgs{
 struct cmdArgs cmd;
 int main (int argc, char** argv)
 {
-  
-
   int port = PORT_NUMBER;
   int qlen = QLENGTH;
 
@@ -57,7 +55,6 @@ int main (int argc, char** argv)
   struct sockaddr_in client_addr;
   unsigned int client_addr_len = sizeof(client_addr);
 
-  clear_descriptor();
   initiate_descriptor();
 
   msock = passivesocket(port,qlen);
@@ -273,12 +270,13 @@ void* do_client_f (int sd)
                 }
                 else
                 {
-                    pthread_mutex_lock(&fileArray[identifier].mutex);
+					printf("%s", bytes);
+					pthread_mutex_lock(&fileArray[identifier].mutex);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
-                    fwrite(&bytes , 1 , sizeof(bytes) , fileArray[identifier].fp ); //write the file
+                    fwrite(bytes , 1 , sizeof(bytes) , fileArray[identifier].fp ); //write the file
                     fileArray[identifier].readers --;
                     if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
@@ -293,7 +291,7 @@ void* do_client_f (int sd)
 		
         else if(strcmp(com_tok[0],"FCLOSE")==0)
         {
-          if(num_tok!=3)
+          if(num_tok!=2)
           {
             snprintf(ack1, sizeof ack1,"%s %d Improper FCLOSE.\nFCLOSE format -> FCLOSE identifier \n", ackFAIL,errno);
             send(sd,ack1,strlen(ack1),0);
@@ -379,8 +377,8 @@ int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) /
     }
     if (writeAddr == -1) return -1;
     //else  
-    pthread_mutex_init(&fileArray[writeAddr].mutex);//mutex for the whole structure
-    pthread_cond_init(&fileArray[writeAddr].can_write);
+    pthread_mutex_init(&fileArray[writeAddr].mutex, NULL);//mutex for the whole structure
+    pthread_cond_init(&fileArray[writeAddr].can_write, NULL);
     fileArray[writeAddr].readers = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
     fileArray[writeAddr].owners = 1; //how many clients have the file opened
     fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
