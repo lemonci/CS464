@@ -34,6 +34,38 @@ The program does not require installation. Use 'make clean && make' to remake th
 ===================================================================================================
 OVERVIEW OF THE PROGRAM
 
+The servers are capable to detach itself (by default). The output is stored in 'shfd.log'. If '-d' 
+is present, it will output itself in the terminal. '-f' and '-s' allow the user to set to the 
+desired port they want for each server. Else, the default port will kick in.
+
+Shell server:
+the server will perform the simple shell Unix command (from existing executable file). If the 
+execve passed, it will send 'ACK: OK 2 execve complete' to the client. Else, it will send the
+appropriate error or fail message with its code to client. 
+***NOTE: FAIL code ONLY appears on the client side & NOT ON THE SERVER SIDE.***
+
+'CPRINT' can only work when the connection of the client is keepalive (persistant). If the
+client did not execute any action before calling 'CPRINT', 'ACK: ' will appear (empty result) 
+& EIO error will appear. Else it will output the result of the previous execve along with 
+a copy of the status code message. 
+
+File server:
+The file server can hold upon up to 10 file concurrently. When calling 'FOPEN' if server does not 
+hold this file in fileArray, 'OK' message will be send to client. if server hold already such file, 
+'ERR' message will issued along with its file descriptor. Else, if no such file exist, 'FAIL' will 
+prompt.
+
+'FSEEK' will offset the number of bytes of SEEK_CUR pointer of the file (fd in fileArray). 'OK' 
+will appear if the pointer moved to the right position, else ENOENT error will display.
+
+'FCLOSE' will close the file regardless number of readers and writers inside the file. The file 
+descriptor in the fileArray will turn into NULL. All actions waiting or doing to the file will be 
+discarded.
+
+The paradigm of 'FREAD' & 'FWRITE' for concurrent reading and sequential writing is applied. The 
+readers can concurrently read at the same time. The writers can only wait for the readers to be 
+finished. The first writer to acquire the mutex of the file (each file has a mutex) will write & 
+will broadcast back to other when it is done writing. 
  
 
 ===================================================================================================
