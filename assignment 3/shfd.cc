@@ -20,6 +20,8 @@
 #define FILE_QUANTITY 10
 pthread_mutex_t lock;
 
+bool detectDelay = false;
+
 struct fileRecord {
     pthread_mutex_t mutex; //mutex for the whole structure
     pthread_cond_t can_write; //condition variable, name says it all
@@ -331,6 +333,75 @@ void parse_arguments(int argc, char** argv, struct cmdArgs* cmdargs){
 	return;
 }
 
+
+FILE* create_file(char* file_name)
+{
+    //This function handles user-program-file-descriptor-table.
+    FILE* fp;
+
+    printf("-----> File %s created for client",file_name);
+
+    //creating the file
+    fp = fopen(file_name, "w+");  //Actually, we don't need the path. We can just create a file with filename.
+    return fp;
+}
+
+void add_trailing_spaces(char *dest, int size, int num_of_spaces)
+{
+    int len = strlen(dest);
+
+    if( len + num_of_spaces >= size )
+    {
+        num_of_spaces = size - len - 1;
+    }
+
+    memset( dest+len, ' ', num_of_spaces );
+    dest[len + num_of_spaces] = '\0';
+}
+
+int initiate_descriptor() //Can be replaced with an array of struct
+{
+    for (int i = 0; i < FILE_QUANTITY; i++) {
+        fileArray[i].name = (char *) malloc(80);
+    fileArray[i].fp = NULL;
+    }
+    return 0;
+}   
+    
+int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) //Rewrite
+{
+    int writeAddr = -1;
+    for (int i = 0; i < FILE_QUANTITY; i++) {
+    if (fileArray[i].fp == NULL)
+    {
+    writeAddr = i;
+    break;
+    }
+    }
+    if (writeAddr == -1) return -1;
+    //else  
+    pthread_mutex_init(&fileArray[writeAddr].mutex, NULL);//mutex for the whole structure
+    pthread_cond_init(&fileArray[writeAddr].can_write, NULL);
+    fileArray[writeAddr].readers = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
+    fileArray[writeAddr].owners = 1; //how many clients have the file opened
+    fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
+    strncpy(fileArray[writeAddr].name, file_name, 200); // the (absolue) name of the file
+    
+    return writeAddr;
+}
+
+int check_descriptor(char file_name[80])
+{
+    for (int i = 0; i < FILE_QUANTITY; i++) {
+    if (fileArray[i].fp == NULL) continue;
+    if (strcmp(fileArray[i].name, file_name) == 0)
+    {
+        return i;
+    }
+    }
+    return -1;
+}
+
 void* do_client_f (int sd)
 {
     const int ALEN = 256;
@@ -345,11 +416,11 @@ void* do_client_f (int sd)
     char* com_tok[129];
     size_t num_tok;
 
-    pid_t x = syscall(__NR_gettid);
+    //pid_t x = syscall(__NR_gettid);
     //std::cout<<"Thread id: "<<x;
 
-    char str[10];
-    sprintf(str, "%d", x);
+    //char str[10];
+    //sprintf(str, "%d", x);
 
     printf("Incoming client...\n");
 
@@ -475,7 +546,7 @@ void* do_client_f (int sd)
                     {
                         pthread_mutex_lock(&fileArray[identifier].mutex);
                         fileArray[identifier].readers++;
-                        if (cmd.delay == true) sleep(5);
+                        if (detectDelay == true) sleep(5);
                         snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                         send(sd,ack1,strlen(ack1),0);
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
@@ -488,7 +559,7 @@ void* do_client_f (int sd)
                         
                         if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                         
-                        if (cmd.delay == true) sleep(5);
+                        if (detectDelay == true) sleep(5);
                         snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                         send(sd,ack1,strlen(ack1),0);
                     }
@@ -523,7 +594,7 @@ void* do_client_f (int sd)
                 {
                     //printf("%s", bytes);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
-                    if (cmd.delay == true) sleep(5);
+                    if (detectDelay == true) sleep(5);
                     snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                     send(sd,ack1,strlen(ack1),0);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
@@ -581,73 +652,7 @@ void* do_client_f (int sd)
 }
 
 
-FILE* create_file(char* file_name)
-{
-    //This function handles user-program-file-descriptor-table.
-    FILE* fp;
 
-    printf("-----> File %s created for client",file_name);
-
-    //creating the file
-    fp = fopen(file_name, "w+");  //Actually, we don't need the path. We can just create a file with filename.
-    return fp;
-}
-
-void add_trailing_spaces(char *dest, int size, int num_of_spaces)
-{
-    int len = strlen(dest);
-
-    if( len + num_of_spaces >= size )
-    {
-        num_of_spaces = size - len - 1;
-    }
-
-    memset( dest+len, ' ', num_of_spaces );
-    dest[len + num_of_spaces] = '\0';
-}
-
-int initiate_descriptor() //Can be replaced with an array of struct
-{
-    for (int i = 0; i < FILE_QUANTITY; i++) {
-        fileArray[i].name = (char *) malloc(80);
-    fileArray[i].fp = NULL;
-    }
-    return 0;
-}   
-    
-int write_descriptor(int pid, char file_name[80],FILE* file_desc,int deldes=0) //Rewrite
-{
-    int writeAddr = -1;
-    for (int i = 0; i < FILE_QUANTITY; i++) {
-    if (fileArray[i].fp == NULL)
-    {
-    writeAddr = i;
-    break;
-    }
-    }
-    if (writeAddr == -1) return -1;
-    //else  
-    pthread_mutex_init(&fileArray[writeAddr].mutex, NULL);//mutex for the whole structure
-    pthread_cond_init(&fileArray[writeAddr].can_write, NULL);
-    fileArray[writeAddr].readers = 0; //number of simultaneous rads ( a write process should wait until this number is 0)
-    fileArray[writeAddr].owners = 1; //how many clients have the file opened
-    fileArray[writeAddr].fp = file_desc; //the file descriptor (also used as file id for the clients)
-    strncpy(fileArray[writeAddr].name, file_name, 200); // the (absolue) name of the file
-    
-    return writeAddr;
-}
-
-int check_descriptor(char file_name[80])
-{
-    for (int i = 0; i < FILE_QUANTITY; i++) {
-    if (fileArray[i].fp == NULL) continue;
-    if (strcmp(fileArray[i].name, file_name) == 0)
-    {
-        return i;
-    }
-    }
-    return -1;
-}
 
 
 int main (int argc, char** argv, char** envp){
@@ -667,6 +672,8 @@ int main (int argc, char** argv, char** envp){
     if (cmd.nodetach == false){
         x_fd2 = open(logfile, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR|S_IWUSR); 
     }
+    if(cmd.delay == true)
+        detectDelay = true;
 
     //fork (from shell server to file server)
     pid_t serv_pid;
@@ -685,6 +692,7 @@ int main (int argc, char** argv, char** envp){
         }
         printf("Server up and listening on port %d.\n", cmd.port_num_f);
         printf("detached mode: %d.\n", cmd.nodetach);
+        printf("detached mode: %d.\n", detectDelay);
         
     }
     else{
@@ -697,6 +705,7 @@ int main (int argc, char** argv, char** envp){
         }
         printf("Server up and listening on port %d.\n", cmd.port_num_s);
         printf("detached mode: %d.\n", cmd.nodetach);
+        printf("detached mode: %d.\n", detectDelay);
     }
 
 
