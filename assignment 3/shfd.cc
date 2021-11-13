@@ -14,8 +14,23 @@
 
 #include "tokenize.h"
 #include "tcp-utils.h"
-#include "fserv.h"
 //#define DEBUG
+
+#define QLENGTH 32
+#define FILE_QUANTITY 10
+pthread_mutex_t lock;
+
+struct fileRecord {
+    pthread_mutex_t mutex; //mutex for the whole structure
+    pthread_cond_t can_write; //condition variable, name says it all
+    unsigned int readers; //number of simultaneous rads ( a write process should wait until this number is 0)
+    unsigned int owners; //how many clients have the file opened
+    FILE* fp; //the file descriptor (also used as file id for the clients)
+
+    char* name; // the (absolue) name of the file
+};
+
+struct fileRecord fileArray[FILE_QUANTITY];
 
 /***
  * Structure to absorb command line
@@ -316,24 +331,6 @@ void parse_arguments(int argc, char** argv, struct cmdArgs* cmdargs){
 	return;
 }
 
-
-#define PORT_NUMBER 28648
-#define QLENGTH 32
-#define FILE_QUANTITY 10
-pthread_mutex_t lock;
-
-struct fileRecord {
-    pthread_mutex_t mutex; //mutex for the whole structure
-    pthread_cond_t can_write; //condition variable, name says it all
-    unsigned int readers; //number of simultaneous rads ( a write process should wait until this number is 0)
-    unsigned int owners; //how many clients have the file opened
-    FILE* fp; //the file descriptor (also used as file id for the clients)
-
-    char* name; // the (absolue) name of the file
-};
-
-struct fileRecord fileArray[FILE_QUANTITY];
-
 void* do_client_f (int sd)
 {
     const int ALEN = 256;
@@ -478,7 +475,7 @@ void* do_client_f (int sd)
                     {
                         pthread_mutex_lock(&fileArray[identifier].mutex);
                         fileArray[identifier].readers++;
-                        if (delay == true) sleep(5);
+                        if (cmd.delay == true) sleep(5);
                         snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                         send(sd,ack1,strlen(ack1),0);
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
@@ -491,7 +488,7 @@ void* do_client_f (int sd)
                         
                         if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                         
-                        if (delay == true) sleep(30);
+                        if (cmd.delay == true) sleep(5);
                         snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                         send(sd,ack1,strlen(ack1),0);
                     }
@@ -526,7 +523,7 @@ void* do_client_f (int sd)
                 {
                     //printf("%s", bytes);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
-                    if (delay == true) sleep(30);
+                    if (cmd.delay == true) sleep(5);
                     snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
                     send(sd,ack1,strlen(ack1),0);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
@@ -657,7 +654,7 @@ int main (int argc, char** argv, char** envp){
     struct cmdArgs cmd;
 
     //int port = 28638;             //our designated port number
-    const int qlen =32;
+    const int qlen = QLENGTH;
     const char* logfile = "shfd.log";
     int x_fd2;
 
@@ -670,9 +667,6 @@ int main (int argc, char** argv, char** envp){
     if (cmd.nodetach == false){
         x_fd2 = open(logfile, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR|S_IWUSR); 
     }
-
-    if (cmd.delay == true)
-        detectDelay(&cmd.delay);
 
     //fork (from shell server to file server)
     pid_t serv_pid;
