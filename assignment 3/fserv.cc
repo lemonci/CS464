@@ -143,12 +143,18 @@ void* do_client_f (int sd)
                   int identifier = check_descriptor(com_tok[1]); //check if the file is open per file_table. If zero, not open.
                   if(identifier==-1) //file doesn't appear in file_table
                   {
-                    fp = fopen(com_tok[1], "w+"); //If the file does not exist in the file system, create a file
+                    fp = fopen(com_tok[1], "r+");
+					//If the file does not exist in the file system, create a file
                     if (fp == NULL)
                     {
-                        snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
-                        send(sd,ack1,strlen(ack1),0);
-                        continue;
+                        fp = fopen(com_tok[1], "w+");
+						if (fp == NULL)
+						{
+							snprintf(ack1, sizeof ack1,"%s %d\n", ackFAIL,errno);
+							send(sd,ack1,strlen(ack1),0);
+							continue;
+						}
+						else send(sd,ack1,strlen(ack1),0);
                     }
                     identifier = write_descriptor(getpid(),com_tok[1],fp, 0); //write file information to file_table
                     if(identifier !=-1)
@@ -256,7 +262,7 @@ void* do_client_f (int sd)
           {
             int identifier = atoi(com_tok[1]);
 			char bytes[1000];
-			strncpy(bytes, com_tok[2], 1000);
+			strncpy(bytes, com_tok[2], strlen(com_tok[2]));
             if (identifier >= FILE_QUANTITY || identifier < 0)
             {
                 send(sd,"The identifier is not valid.",strlen("The identifier is not valid."),0);
@@ -277,7 +283,7 @@ void* do_client_f (int sd)
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
-                    fwrite(bytes , 1 , sizeof(bytes) , fileArray[identifier].fp ); //write the file
+                    fwrite(bytes , 1 , strlen(com_tok[2]) , fileArray[identifier].fp ); //write the file
                     fileArray[identifier].readers --;
                     if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
