@@ -1,3 +1,13 @@
+/**
+ * @file shfd.cc
+ * @author Wing Shu Leung & Monica (Mengqi) Li
+ * @brief Shell & file server (Assignment 3 cs 464/564)
+ * @version 0.1
+ * @date 2021-11-13
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include <stdio.h>
 #include <libgen.h>
 #include <sys/types.h>
@@ -509,7 +519,7 @@ void* do_client_f (int sd)
                 int skrt = fseek(fileArray[atoi(com_tok[1])].fp, atoi(com_tok[2]), SEEK_CUR);
                 if(skrt==0)
                 {
-                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                  snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,atoi(com_tok[1]);
                   send(sd,ack1,strlen(ack1),0);
                 }
                 else
@@ -547,8 +557,6 @@ void* do_client_f (int sd)
                         pthread_mutex_lock(&fileArray[identifier].mutex);
                         fileArray[identifier].readers++;
                         if (detectDelay == true) sleep(5);
-                        snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
-                        send(sd,ack1,strlen(ack1),0);
                         pthread_mutex_unlock(&fileArray[identifier].mutex);
                         char * buffer = (char *) malloc(length);;
                         fread(buffer, length, 1, fileArray[identifier].fp);
@@ -559,8 +567,7 @@ void* do_client_f (int sd)
                         
                         if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                         
-                        if (detectDelay == true) sleep(5);
-                        snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
+                        snprintf(ackOK, sizeof buffer, buffer);
                         send(sd,ack1,strlen(ack1),0);
                     }
                 }
@@ -595,16 +602,17 @@ void* do_client_f (int sd)
                     //printf("%s", bytes);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
                     if (detectDelay == true) sleep(5);
-                    snprintf(ack1, sizeof ack1,"%s %d\n", ackOK,0);
-                    send(sd,ack1,strlen(ack1),0);
                     while (fileArray[identifier].readers != 0) { pthread_cond_wait(&fileArray[identifier].can_write, &fileArray[identifier].mutex); }
                     fileArray[identifier].readers ++;
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
                     pthread_mutex_lock(&fileArray[identifier].mutex);
                     fwrite(bytes , 1 , strlen(com_tok[2]) , fileArray[identifier].fp ); //write the file
                     fileArray[identifier].readers --;
-                    if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
+                    if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&file);
+					Array[identifier].can_write);
                     pthread_mutex_unlock(&fileArray[identifier].mutex);
+					snprintf(ack1, sizeof ack1,"%s %d\n", ackOK, identifier);
+                    send(sd,ack1,strlen(ack1),0);
                 }
             }
           }
@@ -667,6 +675,8 @@ int main (int argc, char** argv, char** envp){
     struct sockaddr_in client_addr;                     // address of client
     unsigned int client_addr_len = sizeof(client_addr);  // and client addr length
 
+    initiate_descriptor();
+
     //parse the command line
     parse_arguments(argc, argv, &cmd);
     if (cmd.nodetach == false){
@@ -692,7 +702,7 @@ int main (int argc, char** argv, char** envp){
         }
         printf("Server up and listening on port %d.\n", cmd.port_num_f);
         printf("detached mode: %d.\n", cmd.nodetach);
-        printf("detached mode: %d.\n", detectDelay);
+        printf("Delay mode: %d.\n", detectDelay);
         
     }
     else{
@@ -705,7 +715,7 @@ int main (int argc, char** argv, char** envp){
         }
         printf("Server up and listening on port %d.\n", cmd.port_num_s);
         printf("detached mode: %d.\n", cmd.nodetach);
-        printf("detached mode: %d.\n", detectDelay);
+        printf("delay mode: %d.\n", detectDelay);
     }
 
 
