@@ -567,7 +567,7 @@ void* do_client_f (int sd)
                         
                         if (fileArray[identifier].readers == 0) pthread_cond_broadcast(&fileArray[identifier].can_write);
                         
-                        snprintf(ack1, sizeof ack1, "%s%d%s", ackOK, sizeof buffer, buffer);
+                        snprintf(ack1, sizeof ack1, "%s %u %s", ackOK, (unsigned)strlen(buffer), buffer);
                         send(sd,ack1,strlen(ack1),0);
                     }
                 }
