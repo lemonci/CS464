@@ -71,6 +71,6 @@ will broadcast back to other when it is done writing.
 ===================================================================================================
 TESTING RESULTS
 
- 
+FOPEN, FSEEK, FREAD, FWRITE, FCLOSE and quit work for fserv.cc for single and multiple client (under mutex control).
 
 ===================================================================================================
