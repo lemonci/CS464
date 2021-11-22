@@ -1,0 +1,278 @@
+-*- text -*-
+
+Solution to Assignment 3 (CS 464/564, Fall 2021), by Stefan Bruda
+
+The server is implemented in the files shfd.h (header for everything),
+fserv.cc (code for the file server), shserv.cc (code for the shell
+server), and misc.cc (common code and main functions) as a no-frills,
+multithreaded server.  It also detaches by default from the terminal
+and redirects output to the file "shfd.log" in the current working
+directory.
+
+1. User guide: 
+
+The following command line is accepted:
+
+  bbserv [-d] [-D] [-v all|file|comm] [-f port] [-s port]
+
+where
+
+  -f  overrides the default file server port
+  -s  overrides the default shell server port
+  -d  does not detach (debugging mode)
+  -D  delays read and write operations (see report for rationale)
+  -v  comm: prints out (to stdout) messages related to communication
+            events
+      file: prints out (to stdout) messages related to file access
+      all:  `-v comm' and `-v file' together
+
+The options can be given in any order and any combination (I used the
+getopt library).
+
+The server works with any kind of client, including telnet.  The
+problem with the telnet is that it sends \r\n-terminated requests
+instead of the Unix-like \n-terminated requests.  For compatibility
+with clients we designed throughout the course on the other hand, a
+server should also accept \n-terminated requests.  So this server
+accepts _both_ formats (specifically, it eats up the terminating \r if
+present), and its responses are all \r\n-terminated.
+
+
+2. Supporting files:
+
+ o  Module tcp-utils, unchanged except for adding code that makes the
+    socket reusable.
+
+ o  Module tokenize, unchanged.
+
+ o  The makefile, whose target `all' makes the server (the client is
+    _not_ made by default).
+
+ o  File client.cc, mostly the same as triv_client, except that it blocks
+    until it receives one full line, and then has a very short timeout
+    for anything else.  In fact, it is not supposed to receive more
+    than one line except when the server returns the output of a shell
+    command.
+ 
+    So this client does not make much sense, since one can use telnet
+    to interact with the server (and I have been using telnet while
+    testing the server too).  However, this client features a prompt,
+    which is not the case with telnet and which could help in
+    debugging by differentiating between an empty response and a
+    non-response, so I thought I will just include it.
+
+
+3. Implementation details
+
+There is nothing spectacular in there really, except perhaps the
+access control and the handling of information for opened files.
+Other than this, the thing is a simple, multithreaded server similar
+to the one you have already seen.
+
+Notice that the server detaches itself from the controlling terminal,
+closes descriptors, redirects the output to a file, and in general
+does the things a well-behaved server is supposed to do.  It does not
+change directory though, since it is more convenient for demonstration
+purposes to make it run in the directory from which it was launched.
+
+The file server commands are case insensitive, everything else is case
+sensitive.
+
+Most data structures are allocated dynamically.  That there are no
+memory leaks has been insured by code inspection and by the use of
+valgrind.
+
+
+3.1. The shell server
+
+The shell server is really simple, there is nothing much to be said
+about it.  Before doing execv* to execute the requested commands the
+descriptors 1 and 2 of the child process are all re-opened to a
+temporary file which is listed through the communication socket by
+subsequent CPRINT commands.  There is one such a temporary file for
+every client (so that one client does not get the output of a command
+issued by the other client).
+
+The search path is inherited from the process that launches the
+server.  This is a bad security choice but once more convenient for
+testing purposes.
+
+
+3.2. Access control
+
+Access control to files is accomplished by a mutexed structure which
+contains a condition variable for writing and a counter for the
+reading processes that happen concurrently.
+
+A writing process acquires the mutex and does not release it until the
+writing is completed.  However, such a process has to wait for all the
+current reading processes to complete before doing anything.
+Meantime, the mutex should be temporarily released (otherwise reading
+processes will not be able to signal completion).  So, the writing
+process also waits on a condition variable that is signaled as soon
+as the number of concurrent reading processes reaches the value 0, as
+follows (where mutex is the mutex, cond is the condition, and rd is the
+number of concurrent reading processes, the latter two protected by
+mutex):
+
+      pthread_mutex_lock(&mutex);
+      while (rd != 0) {
+        pthread_cond_wait(&cond, &mutex);
+      }
+
+      // Do the effective writing
+
+      pthread_cond_broadcast(&cond); // so that other waiting 
+                                     // processes are notified
+      pthread_mutex_unlock(&mutex);
+
+The read process also acquires the mutex in order to increment (and
+later decrement) the number rd of reading processes, but after
+incrementing this counter the mutex is released.  This allows for
+concurrent reads, while writing processes will be prevented to go
+ahead by the non-zero value of rd.  A reading process is thus
+summarized by the following pseudo-code (with the same notation as
+above):
+
+      pthread_mutex_lock(&mutex);
+      rd++;
+      pthread_mutex_unlock(&mutex);
+    
+      // Do the effective reading (outside any critical region!)
+    
+      pthread_mutex_lock(&mutex);
+      rd--;
+      if (rd == 0)
+        pthread_cond_broadcast(&cond);  // so that waiting writing
+                                        // processes are notified
+      pthread_mutex_unlock(&mutex);
+
+All of this could have been accomplished without using the condition
+variable, but this is the most efficient solution.
+
+Note that seeking has an potential impact similar to writing, so we
+use for seeking the same access algorithm as for writing.
+
+
+3.3. Keeping track of opened files
+
+One access control structure (containing a mutex, a condition
+variable, and the number of clients--the "owners"--that have requested
+the file to be opened) exists for every opened file.  The opened files
+are recorded in an array of pointers to structures.  When closing a
+file, the owner field of the corresponding structure is decremented.
+If this field becomes zero, then the file is effectively closed and
+the structure is deallocated; otherwise the file remains open.  Once a
+client closes its connection, we close (in the sense above) all the
+files opened by that client in order to make sure that we do not waste
+resources.
+
+A first idea for avoiding opening the same file twice is to store the
+name of each file in the respective access control structure and
+compare the name of any new file with the names of the files already
+opened.  We further store names by absolute path to avoid trivial
+variants of a name to be considered different.  This works reasonably
+well in most circumstances, but fails for hard and soft links and also
+for shell shortcuts such as the ~ shortcut.  You can still see this
+approach in my code, but commented out since we can easily implement a
+better approach.
+
+The best solution for comparing files is to note that a file name is a
+pointer to that file's inode.  The inode in turn is unique to each
+physical file in the file system, no matter under which name that
+inode is accessed.  Therefore we store the inode of each opened file
+in the access contrl structure.  Then we compare the inode of any new
+file to the ones already stored, thus identifying whether the new file
+is indeed new or it has been opened already.  Needless to say, inode
+comparison works over everything, including hard links, symbolic
+links, and shell shortcuts.
+
+Obtaining the inode of a file is easy using the fstat() system call:
+Let fd contain the descriptor of a file.  Then the following piece of
+code will obtain the inode of that file:
+
+struct stat file_info;
+int ret = fstat(fd, &file_info);
+
+Assuming that ret == 0, file_info.st_ino contains at this point the
+inode of fd.  Piece of cake.
+
+
+4. Tests
+
+Normal operation has been tested interactively with multiple clients
+connected simultaneously.  No surprises here, all the commands work as
+advertised except for the bugs below.
+
+The shell server is too simple to linger too much on.  Various
+existing and non-existing commands have been issued, plus interleaving
+CPRINT commands.  Everything just works.
+
+In order to test the correct access control to the opened files, I
+have used the -v and -D switches.  I used three clients connected
+simultaneously to the same server and I followed the following
+scenarios:
+
+o  The three clients issue read requests quasi-simultaneously: There
+   is a ~20 seconds wait and then all the three responses appear.
+   Obviously, reading is concurrent.
+
+o  The three clients issue write requests quasi-simultaneously: The
+   responses are given ~5 seconds apart, which shows that write is
+   exclusive.
+
+o  A client issues a write request, two other follow with read
+   requests quasi-simultaneously.  There is the ~5 seconds delay for
+   the response to the write request /and/ a supplementary delay of
+   ~20 seconds for the responses to the read requests.  Thus, no read
+   can start if a write is already in progress.
+
+o  Similarly to the above scenario, but the write request is the last.
+   The delays are reversed (but the total delay remains ~25 seconds),
+   which shows that no write starts until all the reads complete.
+
+This provides conclusive evidence that the access control, as well as
+the application protocol, work as required.
+
+The following I/O error conditions have also been tested:
+
+o  Errors in the command line arguments are handled correctly (server
+   refuses to start and displays a usage message).
+
+o  Socket binding: appropriate error messages have been signaled for
+   ports already in use, ports with forbidden access, etc.  The server
+   refuses to start in all of this cases.
+
+o  Various scenarios with files lacking sufficient permissions have
+   been tested and have been handled correctly.
+
+All the tests are reproducible, so no output is provided.
+
+
+4.1.  Known bugs
+
+o  An exec error or an error in manipulating the output file for
+   external commands are signalled by a 0xFF status code sent back to
+   the parent process.  If an application that is actually executed
+   exits with this code, then the server will send back to the client
+   no message (it should have sent a FAIL message).
+
+o  If a file contains null bytes the result of an FREAD command may be
+   incorrect.  Note that current clients are unable to send null
+   bytes.
+
+o  The logging is not really portable, in that the IP addresses of the
+   clients are assumed to be IPv4 addresses.
+
+o  All failed system calls should have been logged but not all of them
+   are in the current version.
+
+o  The shell server could use more debugging code (and a debugging
+   option of its own too).  It does seem too simple to pose problems,
+   but one never knows.
+
+o  The code in general is kind of kludgy being written in a hurry.
+   There is no encapsulation and besides memory management the code is
+   largely C.  I actually chose to implement the thing in C++
+   precisely because of the memory management system (which is in my
+   opinion much saner than C's).
