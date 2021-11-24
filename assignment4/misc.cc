@@ -127,11 +127,11 @@ void* shell_server (int msock) {
     int ssock;                      // slave sockets
     struct sockaddr_in client_addr; // the address of the client...
     socklen_t client_addr_len = sizeof(client_addr); // ... and its length
-    // Setting up the thread creation:
-    pthread_t tt;
-    pthread_attr_t ta;
-    pthread_attr_init(&ta);
-    pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
+    // // Setting up the thread creation:
+    // pthread_t tt;
+    // pthread_attr_t ta;
+    // pthread_attr_init(&ta);
+    // pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);               //only accept one connection at a time
 
     char msg[MAX_LEN];  // logger string
 
@@ -145,17 +145,21 @@ void* shell_server (int msock) {
             return 0;
         }
 
-        // assemble client coordinates (communication socket + IP)
+        // assemble client coordinates (communication socket + IP)   --> should be local
         client_t* clnt = new client_t;
         clnt -> sd = ssock;
         ip_to_dotted(client_addr.sin_addr.s_addr, clnt -> ip);
 
-        // create a new thread for the incoming client:
-        if ( pthread_create(&tt, &ta, (void* (*) (void*))shell_client, (void*)clnt) != 0 ) {
-            snprintf(msg, MAX_LEN, "%s: shell server pthread_create: %s\n", __FILE__, strerror(errno));
-            logger(msg);
-            return 0;
-        }
+        // // create a new thread for the incoming client:
+        // if ( pthread_create(&tt, &ta, (void* (*) (void*))shell_client, (void*)clnt) != 0 ) {
+        //     snprintf(msg, MAX_LEN, "%s: shell server pthread_create: %s\n", __FILE__, strerror(errno));
+        //     logger(msg);
+        //     return 0;
+        // }
+
+        //only one connection at a time from incoming client:
+        shell_client(clnt);
+
         // go back and block on accept.
     }
     return 0;   // will never reach this anyway...
@@ -234,14 +238,14 @@ int main (int argc, char** argv, char** envp) {
     // Open the master sockets (this is the startup code, since we
     // might not have permissions to open this socket for some reason
     // or another, case in which the startup fails):
-    shsock = passivesocket(shport,qlen);
+    shsock = controlsocket(shport,qlen);
     if (shsock < 0) {
-        perror("shell server passivesocket");
+        perror("shell server controlsocket");                                              // now only listen fro local connections i.e. 127.0.0.1
         return 1;
     }
-    printf("Shell server up and listening on port %d\n", shport);
+    printf("Shell server up and listening clients on local machine at port %d\n", shport);
 
-    fsock = passivesocket(fport,qlen);
+    fsock = passivesocket(fport,qlen);k
     if (fsock < 0) {
         perror("file server passivesocket");
         return 1;
