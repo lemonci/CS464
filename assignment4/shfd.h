@@ -20,6 +20,15 @@
 /*** Global stuff: ***/
 
 /*
+* Structure to collect each peer server IP and port number
+*/
+struct peers{
+    int pport;
+    char* phost;
+};
+
+
+/*
  * Structure for parameters to the client handling function.  the IP
  * address is used for logging.
  */
