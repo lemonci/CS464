@@ -8,6 +8,20 @@
 #include "shfd.h"
 
 /*
+* the number of peers involved in replication
+*/
+const int MAX_PEER = 10;  //up to 10 server
+struct peers pserv[MAX_PEER];
+int replica;                    //real number of replicas
+
+
+/**
+ * preallocated threads
+ */
+int max_threads;
+int incr_threads;
+
+/*
  * Log file
  */
 const char* logfile = "shfd.log";
@@ -94,6 +108,9 @@ void* file_server (int msock) {
     while (1) {
         // Accept connection:
         ssock = accept(msock, (struct sockaddr*)&client_addr, &client_addr_len);
+       
+        //additonal t_incr threads
+
         if (ssock < 0) {
             if (errno == EINTR) continue;
             snprintf(msg, MAX_LEN, "%s: file server accept: %s\n", __FILE__, strerror(errno));
@@ -121,6 +138,14 @@ void* file_server (int msock) {
         // go back and block on accept.
     }
     return 0;   // will never reach this anyway...
+}
+
+void setupfs() {
+     // Setting up the thread creation:
+    // pthread_t tt;
+    // pthread_attr_t ta;
+    // pthread_attr_init(&ta);
+    // pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
 }
 
 void* shell_server (int msock) {
@@ -165,6 +190,38 @@ void* shell_server (int msock) {
     return 0;   // will never reach this anyway...
 }
 
+/**
+ * Extract the peer from the arg[optind]
+ */
+void extractPeer(char* address){
+    struct peers newPeer;
+    size_t len_addr = strlen(address);
+
+    char * token; 
+    token = strtok(address, ":");
+    if (len_addr == strlen(token)){
+        printf("%s: wrong peer address\n", address);
+        return;
+    }
+    else{
+        newPeer.phost = token;
+        token = strtok(NULL,":");
+        if(token == NULL){
+            printf("No port number in peer address\n");
+            return;
+        } 
+        else{
+            
+            if ((newPeer.pport = atoi(token)) == 0){
+                printf("Port number invalid\n");
+                return;
+            }
+            pserv[replica] = newPeer;
+            replica++;
+        }
+    }
+}
+
 /*
  * Initializes the access control structures, fires up a thread that
  * handles the file server, and then does the standard job of the main
@@ -173,9 +230,14 @@ void* shell_server (int msock) {
 int main (int argc, char** argv, char** envp) {
     int shport = 9001;              // ports to listen to
     int fport = 9002;
+    int pport = 10000;
     long int shsock, fsock;              // master sockets
     const int qlen = 32;            // queue length for incoming connections
     char* progname = basename(argv[0]);  // informational use only.
+    max_threads = 12;
+    incr_threads = 3;               //default preallocated threads
+
+
 
     char msg[MAX_LEN];  // logger string
 
@@ -185,7 +247,7 @@ int main (int argc, char** argv, char** envp) {
     extern char *optarg;
     int copt;
     bool detach = true;  // Detach by default
-    while ((copt = getopt (argc,argv,"s:f:v:dD")) != -1) {
+    while ((copt = getopt (argc,argv,"s:f:v:t:T:p:dD")) != -1) {
         switch ((char)copt) {
         case 'd':
             detach = false;
@@ -208,11 +270,29 @@ int main (int argc, char** argv, char** envp) {
         case 'f':
             fport = atoi(optarg);
             break;
+        case 't':
+            incr_threads = atoi(optarg);
+            break;
+        case 'T':
+            max_threads = atoi(optarg);
+            break;
+        case 'p':
+            pport = atoi(optarg);
+            break;
         }
     }
+    //the extra arguments we extract and put them in the struct Peer
+    for(; optind < argc; optind++){
+        extractPeer(argv[optind]);
+    }
+    
+    for (int i=0; i< replica; i++){
+        printf("peer %d: host-> %s  port-> %d\n", i, pserv[i].phost, pserv[i].pport);
+    }
+           
 
-    if (shport <= 0 || fport <= 0) {
-        printf("Usage: %s  [-d] [-D] [-v all|file|comm] [-s port] [-f port].\n", progname);
+    if (shport <= 0 || fport <= 0 || pport <= 0 || incr_threads <= 0 || max_threads <= 0) {
+        printf("Usage: %s  [-d] [-D] [-s port] [-f port] [-p port host:port host:port] [-t preallocate] [-T max_thread] [-v all|file|comm].\n", progname);
         return 1;
     }
 
@@ -245,7 +325,7 @@ int main (int argc, char** argv, char** envp) {
     }
     printf("Shell server up and listening clients on local machine at port %d\n", shport);
 
-    fsock = passivesocket(fport,qlen);k
+    fsock = passivesocket(fport,qlen);
     if (fsock < 0) {
         perror("file server passivesocket");
         return 1;
