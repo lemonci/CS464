@@ -284,18 +284,28 @@ int main (int argc, char** argv, char** envp) {
     //the extra arguments we extract and put them in the struct Peer
     for(; optind < argc; optind++){
         extractPeer(argv[optind]);
-    }
-    
-    for (int i=0; i< replica; i++){
-        printf("peer %d: host-> %s  port-> %d\n", i, pserv[i].phost, pserv[i].pport);
-    }
-           
+    }          
 
     if (shport <= 0 || fport <= 0 || pport <= 0 || incr_threads <= 0 || max_threads <= 0) {
         printf("Usage: %s  [-d] [-D] [-s port] [-f port] [-p port host:port host:port] [-t preallocate] [-T max_thread] [-v all|file|comm].\n", progname);
         return 1;
     }
 
+    if(incr_threads > max_threads){
+        printf("Cannot create threads because t_incr > t_max\n");
+        return 1;
+    }
+
+    if (replica == 0){
+        printf("no peer for replication. Synchronization off at port %d\n", pport);
+    }
+    else{
+        printf("peers detected...Synchronization on at port %d\n", pport);
+        for (int i=0; i< replica; i++){
+            printf("peer %d: host-> %s  port-> %d\n", i, pserv[i].phost, pserv[i].pport);
+            // some flag for synchronization
+        }
+    }
     // The pid file does not make sense as a lock file since our
     // server never goes down willlingly.  So we do not lock the file,
     // we just store the pid therein.  In other words, we hint to the
