@@ -20,6 +20,8 @@ int replica;                    //real number of replicas
  */
 int max_threads;
 int incr_threads;
+int curr_threads = 0;
+int act_threads = 0;
 
 /*
  * Log file
