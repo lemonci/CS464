@@ -108,10 +108,10 @@ void* file_server (int msock) {
         logger(msg);
         snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
         logger(msg);
-        falive = false;
+        falive = false;             //we don't have client threads...
         return 0;
     }
-    talive = true;              
+    talive = true;              //we have our initial threads
 
     while (talive){              //keep the initial threads alive 
         sleep(70);              //verify every 1 min if thread are alive?
@@ -183,30 +183,26 @@ int set_threads(int msock) {
 
     for (int i=0; i< incr_threads; i++){
         if (curr_threads <max_threads){
-            if(pthread_create(&tt, &ta, (void* (*) void*)file_client, (void*)msock) != 0){
+            pthread_mutex_lock(&thread_mutex);
+            curr_threads++;
+            pthread_mutex_unlock(&thread_mutex);
+            if(pthread_create(&tt, &ta, (void* (*) (void*))file_client, (void*)msock) != 0){
                 snprintf(msg, MAX_LEN, "%s: set threads cannot pthread_create: %s\n", __FILE__, strerror(errno));
                 logger(msg);
                 snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
                 logger(msg);
-                talive = false;
+                pthread_mutex_lock(&thread_mutex);
+                curr_threads--;
+                pthread_mutex_unlock(&thread_mutex);
+                talive = false;         //something is wrong with the client thread we should end procedure
                 return 1;
-            }
-            pthread_mutex_lock(&thread_mutex);
-            curr_threads++;
-            pthread_mutex_unlock(&thread_mutex);
-            
+            }            
         }
         else{
             break;
         }
     }
-    talive = true;
-
-    while (talive){
-        sleep(70);              //verify every 1 min if thread are alive?
-    }
-
-    return 0;                 // it wont' reach
+    return 0;                 // meaning the threads have succeed
 }
 
 void* shell_server (int msock) {
@@ -303,6 +299,7 @@ int main (int argc, char** argv, char** envp) {
     char msg[MAX_LEN];  // logger string
 
     pthread_mutex_init(&logger_mutex, 0);
+    pthread_mutex_init(&thread_mutex, 0);
 
     // parse command line
     extern char *optarg;
