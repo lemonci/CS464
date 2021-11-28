@@ -30,10 +30,15 @@ const char* logfile = "shfd.log";
 const char* pidfile = "shfd.pid";
 
 /*
+ * true iff the threads in file server is alive (and kicking).
+ */
+bool talive;
+/*
  * true iff the file server is alive (and kicking).
  */
 bool falive;
 
+pthread_mutex_t thread_mutex;
 pthread_mutex_t logger_mutex;
 
 extern char **environ;
@@ -96,58 +101,112 @@ int next_arg(const char* line, char delim) {
 }
 
 void* file_server (int msock) {
-    int ssock;                      // slave sockets
-    struct sockaddr_in client_addr; // the address of the client...
-    socklen_t client_addr_len = sizeof(client_addr); // ... and its length
-    // Setting up the thread creation:
-    pthread_t tt;
-    pthread_attr_t ta;
-    pthread_attr_init(&ta);
-    pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
+    char msg[MAX_LEN];
 
-    char msg[MAX_LEN];  // logger string
-
-    while (1) {
-        // Accept connection:
-        ssock = accept(msock, (struct sockaddr*)&client_addr, &client_addr_len);
-       
-        //additonal t_incr threads
-
-        if (ssock < 0) {
-            if (errno == EINTR) continue;
-            snprintf(msg, MAX_LEN, "%s: file server accept: %s\n", __FILE__, strerror(errno));
-            logger(msg);
-            snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
-            logger(msg);
-            falive = false;
-            return 0;
-        }
-
-        // assemble client coordinates (communication socket + IP)
-        client_t* clnt = new client_t;
-        clnt -> sd = ssock;
-        ip_to_dotted(client_addr.sin_addr.s_addr, clnt -> ip);
-
-        // create a new thread for the incoming client:
-        if ( pthread_create(&tt, &ta, (void* (*) (void*))file_client, (void*)clnt) != 0 ) {
-            snprintf(msg, MAX_LEN, "%s: file server pthread_create: %s\n", __FILE__, strerror(errno));
-            logger(msg);
-            snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
-            logger(msg);
-            falive = false;
-            return 0;
-        }
-        // go back and block on accept.
+    if (set_threads(msock) != 0){              //set the initial threads
+        snprintf(msg, MAX_LEN, "%s: file server failed to make new threads from set_threads\n", __FILE__);
+        logger(msg);
+        snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
+        logger(msg);
+        falive = false;
+        return 0;
     }
-    return 0;   // will never reach this anyway...
-}
+    talive = true;              
 
-void setupfs() {
-     // Setting up the thread creation:
+    while (talive){              //keep the initial threads alive 
+        sleep(70);              //verify every 1 min if thread are alive?
+    }
+
+    return 0;   // will never reach this anyway...
+
+
+/****************************old code*************************************/
+    // int ssock;                      // slave sockets
+    // struct sockaddr_in client_addr; // the address of the client...
+    // socklen_t client_addr_len = sizeof(client_addr); // ... and its length
+    // // Setting up the thread creation:
     // pthread_t tt;
     // pthread_attr_t ta;
     // pthread_attr_init(&ta);
     // pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
+
+    // char msg[MAX_LEN];  // logger string
+
+    // while (1) {
+    //     // Accept connection:
+    //     ssock = accept(msock, (struct sockaddr*)&client_addr, &client_addr_len);
+       
+    //     //additonal t_incr threads
+
+    //     if (ssock < 0) {
+    //         if (errno == EINTR) continue;
+    //         snprintf(msg, MAX_LEN, "%s: file server accept: %s\n", __FILE__, strerror(errno));
+    //         logger(msg);
+    //         snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
+    //         logger(msg);
+    //         falive = false;
+    //         return 0;
+    //     }
+
+    //     // assemble client coordinates (communication socket + IP)
+    //     client_t* clnt = new client_t;
+    //     clnt -> sd = ssock;
+    //     ip_to_dotted(client_addr.sin_addr.s_addr, clnt -> ip);
+
+    //     // create a new thread for the incoming client:
+    //     if ( pthread_create(&tt, &ta, (void* (*) (void*))file_client, (void*)clnt) != 0 ) {
+    //         snprintf(msg, MAX_LEN, "%s: file server pthread_create: %s\n", __FILE__, strerror(errno));
+    //         logger(msg);
+    //         snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
+    //         logger(msg);
+    //         falive = false;
+    //         return 0;
+    //     }
+    //     // go back and block on accept.
+    // }
+}
+
+/*
+*Create preallocated thread in master socket
+* 0 = threads are create
+* 1= threads cannot be create
+* if reach the max_threads just go back....
+*/
+int set_threads(int msock) {
+     // Setting up the thread creation:
+    pthread_t tt;
+    pthread_attr_t ta;
+    pthread_attr_init(&ta);
+    pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
+    
+    char msg[MAX_LEN];
+
+    for (int i=0; i< incr_threads; i++){
+        if (curr_threads <max_threads){
+            if(pthread_create(&tt, &ta, (void* (*) void*)file_client, (void*)msock) != 0){
+                snprintf(msg, MAX_LEN, "%s: set threads cannot pthread_create: %s\n", __FILE__, strerror(errno));
+                logger(msg);
+                snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
+                logger(msg);
+                talive = false;
+                return 1;
+            }
+            pthread_mutex_lock(&thread_mutex);
+            curr_threads++;
+            pthread_mutex_unlock(&thread_mutex);
+            
+        }
+        else{
+            break;
+        }
+    }
+    talive = true;
+
+    while (talive){
+        sleep(70);              //verify every 1 min if thread are alive?
+    }
+
+    return 0;                 // it wont' reach
 }
 
 void* shell_server (int msock) {
@@ -308,6 +367,7 @@ int main (int argc, char** argv, char** envp) {
             // some flag for synchronization
         }
     }
+
     // The pid file does not make sense as a lock file since our
     // server never goes down willlingly.  So we do not lock the file,
     // we just store the pid therein.  In other words, we hint to the
