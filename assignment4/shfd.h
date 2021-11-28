@@ -14,6 +14,7 @@
 #include <libgen.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "tcp-utils.h"
 
@@ -27,7 +28,6 @@ struct peers{
     char* phost;
 };
 
-
 /*
  * Structure for parameters to the client handling function.  the IP
  * address is used for logging.
@@ -36,6 +36,21 @@ struct client_t {
     int sd;    // the communication socket
     char ip[20];   // the (dotted) IP address
 };
+
+/* 
+ * threads variables;
+ */
+extern int max_threads;
+extern int incr_threads;
+extern int curr_threads;
+extern int act_threads;
+
+/* 
+ * making sure that tha file server is alive 
+ * and that there are threads that are alive and ready to server client
+ */
+extern bool falive;
+extern bool talive; 
 
 /* 
  * Log file (both stderr and stdout):
@@ -81,7 +96,7 @@ void logger(const char *);
  * function cdate() which is not thread safe).
  */
 extern pthread_mutex_t logger_mutex;
-
+extern pthread_mutex_t thread_mutex;
 
 /*** File server stuff: ***/
 
@@ -124,8 +139,9 @@ const int err_nofile = -2;
  * Terminates when receives the command QUIT or when the cliens closes
  * the connection.  The names of the commands are case insensitive.
  */
-void* file_client (client_t*);
+//void* file_client (client_t*);
 
+void* file_client(int);
 
 
 /*** Shell server stuff: ***/
@@ -143,3 +159,7 @@ const int err_exec = 0xFF;
  */
 void* shell_client(client_t*);
 
+/*
+*  to create preallocated threads based on thread_incr
+*/
+int set_threads(int);
