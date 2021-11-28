@@ -274,19 +274,43 @@ int read_excl(int fd, char* stuff, size_t stuff_length) {
  * Client handler for the file server.  Receives the descriptor of the
  * communication socket.
  */
-void* file_client (client_t* clnt) {
-    int sd = clnt -> sd;
-    char* ip = clnt -> ip;
+//void* file_client (client_t* clnt) {
+
+void* file_client (int msock) {
+    //int sd = clnt -> sd;
+    //char* ip = clnt -> ip;
+
+    int sd;         //the thread = socket
+    struct sockaddr_in client_addr;         //the address of the client....
+    unsigned int client_addr_len = sizeof(client_addr);        // ... and its length
+
 
     char req[MAX_LEN];  // current request
     char msg[MAX_LEN];  // logger string
     int n;
+
+    while (1){
+        if(act_threads == )
+        sd = accept(msock, (stuct sockaddr*)&client_addr, &client_addr_len);
+        if (sd < 0){
+            if (errno == EINTR) continue;
+            snprintf(msg, MAX_LEN, "%s: file server accept: %s\n", __FILE__, strerror(errno));
+            logger(msg);
+            snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
+            logger(msg);
+            return 0;
+        }
+        pthread_mutex_lock(&thread_mutex);
+        act_threads++;
+        pthread_mutex_unlock(&thread_mutex);
+    }
     bool* opened_fds = new bool[flocks_size];
     for (size_t i = 0; i < flocks_size; i++)
         opened_fds[i] = false;
 
     // make sure req is null-terminated...
     req[MAX_LEN-1] = '\0';
+
 
     snprintf(msg, MAX_LEN, "%s: new client from %s assigned socket descriptor %d\n",
              __FILE__, ip, sd);
