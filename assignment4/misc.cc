@@ -23,6 +23,10 @@ int incr_threads;
 int curr_threads = 0;
 int act_threads = 0;
 
+bool tdie = false;
+int to_die;
+
+
 /*
  * Log file
  */
@@ -100,6 +104,74 @@ int next_arg(const char* line, char delim) {
     return arg_index;
 }
 
+
+/*
+*Create preallocated thread in master socket
+* 0 = threads are create
+* 1= threads cannot be create
+* if reach the max_threads just go back....
+*/
+int set_threads(long int msock) {
+     // Setting up the thread creation:
+    pthread_t tt;
+    pthread_attr_t ta;
+    pthread_attr_init(&ta);
+    pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
+    
+    char msg[MAX_LEN];
+
+    for (int i=0; i< incr_threads; i++){
+        if (curr_threads <max_threads){
+            pthread_mutex_lock(&thread_mutex);
+            curr_threads++;
+            snprintf(msg, MAX_LEN, "%s: new thread [%d] create...current thread = %d\n", __FILE__, gettid(), curr_threads);
+            logger(msg);
+            pthread_mutex_unlock(&thread_mutex);
+            if(pthread_create(&tt, &ta, (void* (*) (void*))file_client, (void*) msock) != 0){
+                snprintf(msg, MAX_LEN, "%s: set threads cannot pthread_create: %s\n", __FILE__, strerror(errno));
+                logger(msg);
+                snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
+                logger(msg);
+                pthread_mutex_lock(&thread_mutex);
+                curr_threads--;
+                pthread_mutex_unlock(&thread_mutex);
+                talive = false;         //something is wrong with the client thread we should end procedure
+                return 1;
+            }            
+        }
+        else{
+            break;     // reach max_threads limit
+        }
+    }
+    return 0;                 // meaning the threads have succeed
+}
+
+/**
+ * handle threads whether to die or not
+ * 
+ */
+void handle_threads(){
+        char msg[MAX_LEN];
+
+        pthread_mutex_lock(&thread_mutex);
+        if (tdie){
+            to_die --;
+            curr_threads --;
+            if (to_die == 0)
+                tdie = false;            
+        }
+        else{
+            // tdie is back to false
+            pthread_mutex_unlock(&thread_mutex);
+            return;
+        }
+        pthread_mutex_unlock(&thread_mutex);
+        snprintf(msg, MAX_LEN, "%s: idle thread [%d] has died\n", __FILE__, gettid());
+        logger(msg);
+        pthread_exit(NULL);
+    
+}
+
 void* file_server (int msock) {
     char msg[MAX_LEN];
 
@@ -108,7 +180,7 @@ void* file_server (int msock) {
         logger(msg);
         snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
         logger(msg);
-        falive = false;             //we don't have client threads...
+        falive = false;             //we don't have client threads so file server is useless...
         return 0;
     }
     talive = true;              //we have our initial threads
@@ -116,8 +188,9 @@ void* file_server (int msock) {
     while (talive){              //keep the initial threads alive 
         sleep(70);              //verify every 1 min if thread are alive?
     }
+    falive = false;             //we should also terminate the file server thread too
 
-    return 0;   // will never reach this anyway...
+    return 0;   //it will reach if something bad happen....
 
 
 /****************************old code*************************************/
@@ -166,44 +239,6 @@ void* file_server (int msock) {
     // }
 }
 
-/*
-*Create preallocated thread in master socket
-* 0 = threads are create
-* 1= threads cannot be create
-* if reach the max_threads just go back....
-*/
-int set_threads(int msock) {
-     // Setting up the thread creation:
-    pthread_t tt;
-    pthread_attr_t ta;
-    pthread_attr_init(&ta);
-    pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
-    
-    char msg[MAX_LEN];
-
-    for (int i=0; i< incr_threads; i++){
-        if (curr_threads <max_threads){
-            pthread_mutex_lock(&thread_mutex);
-            curr_threads++;
-            pthread_mutex_unlock(&thread_mutex);
-            if(pthread_create(&tt, &ta, (void* (*) (void*))file_client, (void*)msock) != 0){
-                snprintf(msg, MAX_LEN, "%s: set threads cannot pthread_create: %s\n", __FILE__, strerror(errno));
-                logger(msg);
-                snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
-                logger(msg);
-                pthread_mutex_lock(&thread_mutex);
-                curr_threads--;
-                pthread_mutex_unlock(&thread_mutex);
-                talive = false;         //something is wrong with the client thread we should end procedure
-                return 1;
-            }            
-        }
-        else{
-            break;
-        }
-    }
-    return 0;                 // meaning the threads have succeed
-}
 
 void* shell_server (int msock) {
     int ssock;                      // slave sockets
@@ -340,7 +375,8 @@ int main (int argc, char** argv, char** envp) {
         }
     }
     //the extra arguments we extract and put them in the struct Peer
-    for(; optind < argc; optind++){
+    optind --;
+    for(; optind < argc && *argv[optind] != '-'; optind++){
         extractPeer(argv[optind]);
     }          
 
@@ -353,13 +389,14 @@ int main (int argc, char** argv, char** envp) {
         printf("Cannot create threads because t_incr > t_max\n");
         return 1;
     }
+    printf("File server creates %d threads with a maximum threads of %d\n", incr_threads, max_threads);
 
     if (replica == 0){
         printf("no peer for replication. Synchronization off at port %d\n", pport);
     }
     else{
         printf("peers detected...Synchronization on at port %d\n", pport);
-        for (int i=0; i< replica; i++){
+        for (int i=0; i< replica; i++){ 
             printf("peer %d: host-> %s  port-> %d\n", i, pserv[i].phost, pserv[i].pport);
             // some flag for synchronization
         }
