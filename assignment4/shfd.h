@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
+#include <poll.h>
 
 #include "tcp-utils.h"
 
@@ -37,6 +38,11 @@ struct client_t {
     char ip[20];   // the (dotted) IP address
 };
 
+/*
+ * Timeout for threads to evaluate .
+ */
+const int TIME_EVAL = 30000;     //30 sec of timeout
+
 /* 
  * threads variables;
  */
@@ -44,12 +50,13 @@ extern int max_threads;
 extern int incr_threads;
 extern int curr_threads;
 extern int act_threads;
+extern bool tdie;
+extern int to_die;
 
 /* 
  * making sure that tha file server is alive 
  * and that there are threads that are alive and ready to server client
  */
-extern bool falive;
 extern bool talive; 
 
 /* 
@@ -162,4 +169,15 @@ void* shell_client(client_t*);
 /*
 *  to create preallocated threads based on thread_incr
 */
-int set_threads(int);
+int set_threads(long int);
+
+/**
+ * handle threads whether to die or not 
+ */
+void handle_threads();
+
+/**
+ * Simple conversion of IP addresses from unsigned int to dotted
+ * notation.
+ */
+void ip_to_dotted(unsigned int, char*);
