@@ -270,326 +270,471 @@ int read_excl(int fd, char* stuff, size_t stuff_length) {
     return result;
 }
 
+
 /*
  * Client handler for the file server.  Receives the descriptor of the
  * communication socket.
  */
-void* file_client (client_t* clnt) {
-    int sd = clnt -> sd;
-    char* ip = clnt -> ip;
+//void* file_client (client_t* clnt) {
+
+void* file_client (int msock) {
+    //int sd = clnt -> sd;
+    //char* ip = clnt -> ip;
+
+    int sd;         //the thread = socket
+    char ip[20];       // ip = client_addr
+    struct sockaddr_in client_addr;         //the address of the client....
+    unsigned int client_addr_len = sizeof(client_addr);        // ... and its length
+
 
     char req[MAX_LEN];  // current request
     char msg[MAX_LEN];  // logger string
     int n;
-    bool* opened_fds = new bool[flocks_size];
-    for (size_t i = 0; i < flocks_size; i++)
-        opened_fds[i] = false;
+    int poll_count = 0; //counter for each poll
 
-    // make sure req is null-terminated...
-    req[MAX_LEN-1] = '\0';
+    while (1){
+        if (talive == false){
+            pthread_mutex_lock(&thread_mutex);
+            tdie = true;
+            to_die = curr_threads;
+            pthread_mutex_unlock(&thread_mutex);
+            handle_threads();           //kill all idle threads
+        }
 
-    snprintf(msg, MAX_LEN, "%s: new client from %s assigned socket descriptor %d\n",
-             __FILE__, ip, sd);
-    logger(msg);
-    snprintf(msg, MAX_LEN, 
-             "Welcome to shfd v.1 [%s]. FOPEN FSEEK FREAD FWRITE FCLOSE QUIT spoken here.\r\n",
-             ip);
-    send(sd, msg, strlen(msg),0);
+        struct pollfd pollrec;
+        pollrec.fd = msock;
+        pollrec.events = POLLIN;
+        int polled = poll(&pollrec,1,TIME_EVAL);
 
-    // Loop while the client has something to say...
-    while ((n = readline(sd,req,MAX_LEN-1)) != recv_nodata) {
-        char* ans = new char[MAX_LEN]; // the response sent back to the client
-        // we allocate space for the answer dinamically because the
-        // result of a FREAD command is virtually unbounded in size
-        ans[MAX_LEN-1] = '\0';
-        // If we talk to telnet, we get \r\n at the end of the line
-        // instead of just \n, so we take care of the possible \r:
-        if ( n > 1 && req[n-1] == '\r' ) 
-            req[n-1] = '\0';
-        if (debugs[DEBUG_COMM]) {
-            snprintf(msg, MAX_LEN, "%s: --> %s\n", __FILE__, req);
+        if (polled < 0){                      //error
+            if (errno == EINTR) continue;
+            snprintf(msg, MAX_LEN, "%s: failed at handle thread poll: %s\n", __FILE__, strerror(errno));
             logger(msg);
-        } /* DEBUG_COMM */
-        if ( strncasecmp(req,"QUIT",strlen("QUIT")) == 0 ) {  // we are done!
-            snprintf(msg, MAX_LEN, "%s: QUIT received from client %d (%s), closing\n", __FILE__, sd, ip);
+            talive = false;
+            break;
+        }
+        //to simulate more or less than the 60 sec while checking the state of talive
+        if (polled == 0 && poll_count < 20){    
+            poll_count++;
+            // snprintf(msg, MAX_LEN, "poll count = %d\n", poll_count);
+            // logger(msg);
+            continue;
+        }
+
+        if (polled  == 0 && poll_count == 20){                      // idling threads
+            if (curr_threads <= incr_threads){
+                poll_count = 0;
+                continue;                 //if the idle threads is same as the initial threads... go back and poll again                 
+            }
+            else if ((curr_threads - incr_threads - 1) < act_threads){
+                poll_count = 0;
+                continue;
+            }
+            else if (tdie){          //if trigger have already start
+                poll_count = 0;     // we don't need it since thread will die...just a precaution in case thread stay alive
+                handle_threads();
+            }
+            else{           //we have too many idle batch of threads ---only need one time to trigger
+                poll_count = 0; // we don't need it since thread will die...just a precaution in case thread stay alive
+                pthread_mutex_lock(&thread_mutex);
+                to_die = incr_threads;
+                tdie = true;
+                pthread_mutex_unlock(&thread_mutex);
+                handle_threads();
+                //that thread will die
+            }
+        }  
+
+
+        //the thread goes to accept on polled == 1
+        sd = accept(msock, (struct sockaddr*)&client_addr, &client_addr_len);
+        if (sd < 0){
+            if (errno == EINTR) continue;
+            snprintf(msg, MAX_LEN, "%s: file server accept: %s\n", __FILE__, strerror(errno));
             logger(msg);
-            if (debugs[DEBUG_COMM]) {
-                snprintf(msg, MAX_LEN, "%s: <-- OK 0 nice talking to you\n", __FILE__);
-                logger(msg);
-            } /* DEBUG_COMM */
-            send(sd,"OK 0 nice talking to you\r\n", strlen("OK 0 nice talking to you\r\n"),0);
-            shutdown(sd, SHUT_RDWR);
-            close(sd);
-            delete[] ans;
-            snprintf(msg, MAX_LEN, "%s: Attempting to close the files opened by this client\n", __FILE__);
+            snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
             logger(msg);
-            for (size_t i = 0; i < flocks_size; i++)
-                if (opened_fds[i])
-                    file_exit(i);
-            delete[] opened_fds;
-            delete clnt;
             return 0;
         }
-        // ### COMMAND HANDLER ###
-
-        // ### FOPEN ###
-        else if (strncasecmp(req,"FOPEN",strlen("FOPEN")) == 0 ) {
-            int idx = next_arg(req,' ');
-            if (idx == -1 ) {
-                snprintf(ans,MAX_LEN,"FAIL %d FOPEN requires a file name", EBADMSG);
-            }
-            else { // we attempt to open the file
-                char filename[MAX_LEN];
-                // do we have a relative path?
-                // awkward test, do we have anything better?
-                if (req[idx] == '/') { // absolute
-                    snprintf(filename, MAX_LEN, "%s", &req[idx]);
-                }
-                else { // relative
-                    char cwd[MAX_LEN];
-                    getcwd(cwd, MAX_LEN);
-                    snprintf(filename, MAX_LEN, "%s/%s", cwd, &req[idx]);
-                }
-
-                // Improved file comparison (by inode rather than file name). Replaces (xx) below.
-
-                // open the file to obtain its inode:
-                int fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                // Note: we do not react to errors at this time since we will handle any 
-                // possible error when opening the file for real
-
-                int inode = -1;
-                struct stat fs;
-                int ret = fstat (fd, &fs);
-                if (ret >= 0)
-                    inode = fs.st_ino;
-                close(fd);
-
-                // Look for a file with the same inode in flocks[]:
-                fd = -1;
-                for (size_t i = 0; i < flocks_size; i++) {
-                    if (flocks[i] != 0 && (int)flocks[i] -> inode == inode) {
-                        fd = i;
-                        pthread_mutex_lock(&flocks[fd] -> mutex);
-                        if (! opened_fds[fd])  // file already opened by the same client?
-                            flocks[fd] -> owners ++;
-                        pthread_mutex_unlock(&flocks[fd] -> mutex);
-                        opened_fds[fd] = true;
-                        break;
-                    }
-                }
-
-                /*
-                // (xx) Old code for comparing files by file name, replaced by inode comparison (above)
-
-                int fd = -1;
-
-                for (size_t i = 0; i < flocks_size; i++) {
-                    if (flocks[i] != 0 && strcmp(filename, flocks[i] -> name) == 0) {
-                        fd = i;
-                        pthread_mutex_lock(&flocks[fd] -> mutex);
-                        if (! opened_fds[fd])  // file already opened by the same client?
-                            flocks[fd] -> owners ++;
-                        pthread_mutex_unlock(&flocks[fd] -> mutex);
-                        opened_fds[fd] = true;
-                        break;
-                    }
-                }
-                */
-
-                if (fd >= 0) { // already opened
-                    snprintf(ans, MAX_LEN,
-                             "ERR %d file already opened, please use the supplied identifier", fd);
-                }
-                else { // we open the file anew
-                    fd = file_init(filename);
-                    if (fd < 0)
-                        snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
-                    else {
-                        snprintf(ans, MAX_LEN, "OK %d file opened, please use supplied identifier", fd);
-                        opened_fds[fd] = true;
-                    }
-                }
-                
-            }
-        } // end FOPEN
-
-        // ### FREAD ###
-        else if (strncasecmp(req,"FREAD",strlen("FREAD")) == 0 ) {
-            int idx = next_arg(req,' ');
-            if (idx == -1) // no identifier
-                snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a file identifier", EBADMSG);
-            else {
-                int idx1 = next_arg(&req[idx],' ');
-                if (idx1 == -1) // no identifier
-                    snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a number of bytes to read", EBADMSG);
-                else {
-                    idx1 = idx + idx1;
-                    req[idx1 - 1] = '\0';
-                    if (debugs[DEBUG_COMM]) {
-                        snprintf(msg, MAX_LEN, "%s: (before decoding) will read %s bytes from %s \n",
-                                 __FILE__, &req[idx1], &req[idx]); 
-                        logger(msg);
-                    }
-                    idx = atoi(&req[idx]);  // get the identifier and length
-                    idx1 = atoi(&req[idx1]);
-                    if (debugs[DEBUG_COMM]) {
-                        snprintf(msg, MAX_LEN, "%s: (after decoding) will read %d bytes from %d \n",
-                                 __FILE__, idx1, idx); 
-                        logger(msg);
-                    }
-                    if (idx <= 0 || idx1 <= 0)
-                        snprintf(ans, MAX_LEN,
-                                 "FAIL %d identifier and length must both be positive numbers", EBADMSG);
-                    else { // now we can finally read the thing!
-                        // read buffer
-                        char* read_buff = new char[idx1+1];
-                        int result = read_excl(idx, read_buff, idx1);
-                        // ASSUMPTION: we never read null bytes from the file.
-                        if (result == err_nofile) {
-                            snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
-                        }
-                        else if (result < 0) {
-                            snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
-                        }
-                        else {
-                            read_buff[result] = '\0';
-                            // we may need to allocate a larger buffer
-                            // besides the message, we give 40 characters to OK + number of bytes read.
-                            delete[] ans;
-                            ans = new char[40 + result];
-                            snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
-                        }
-                        delete [] read_buff;
-                    }
-                }
-            }
-        } // end FREAD
-
-        // ### FWRITE ###
-        else if (strncasecmp(req,"FWRITE",strlen("FWRITE")) == 0 ) {
-            int idx = next_arg(req,' ');
-            if (idx == -1) // no argument!
-                snprintf(ans,MAX_LEN,"ERROR %d FWRITE required a file identifier", EBADMSG);
-            else {
-                int idx1 = next_arg(&req[idx],' ');
-                if (idx1 == -1) // no data to write
-                    snprintf(ans,MAX_LEN,"FAIL %d FWRITE requires data to be written", EBADMSG);
-                else {
-                    idx1 = idx1 + idx;
-                    req[idx1 - 1] = '\0';
-                    idx = atoi(&req[idx]);  // get the identifier and data
-                    if (idx <= 0)
-                        snprintf(ans,MAX_LEN,
-                                 "FAIL %d identifier must be positive", EBADMSG);
-                    else { // now we can finally write!
-                        if (debugs[DEBUG_FILE]) {
-                            snprintf(msg, MAX_LEN, "%s: will write %s\n", __FILE__, &req[idx1]);
-                            logger(msg);
-                        }
-                        int result = write_excl(idx, &req[idx1], strlen(&req[idx1]));
-                        if (result == err_nofile)
-                            snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
-                        else if (result < 0) {
-                            snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
-                        }
-                        else {
-                            snprintf(ans, MAX_LEN, "OK 0 wrote %d bytes", result);
-                        }
-                    }
-                }
-            }
-        } // end WRITE
-
-        // ### FSEEK ###
-        else if (strncasecmp(req,"FSEEK",strlen("FSEEK")) == 0 ) {  
-            int idx = next_arg(req,' ');
-            if (idx == -1) // no identifier
-                snprintf(ans,MAX_LEN,"FAIL %d FSEEK requires a file identifier", EBADMSG);
-            else {
-                int idx1 = next_arg(&req[idx],' ');
-                if (idx1 == -1) // no identifier
-                    snprintf(ans,MAX_LEN,"FAIL %d FSEEK requires an offset", EBADMSG);
-                else {
-                    idx1 = idx1 + idx;
-                    req[idx1 - 1] = '\0';
-                    idx = atoi(&req[idx]);  // get the identifier and offset
-                    idx1 = atoi(&req[idx1]);
-                    if (idx <= 0)
-                        snprintf(ans,MAX_LEN,
-                                 "FAIL %d identifier must be positive", EBADMSG);
-                    else { // now we can finally seek!
-                        int result = seek_excl(idx, idx1);
-                        if (result == err_nofile)
-                            snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
-                        else if (result < 0) {
-                            snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
-                        }
-                        else {
-                            snprintf(ans, MAX_LEN, "OK 0 offset is now %d", result);
-                        }
-                    }
-                }
-            } 
-        } // end FSEEK
-
-        // ### FCLOSE ###
-        else if (strncasecmp(req,"FCLOSE",strlen("FCLOSE")) == 0 ) {  
-            int idx = next_arg(req,' ');
-            if (idx == -1) // no identifier
-                snprintf(ans,MAX_LEN,"FAIL %d FCLOSE requires a file identifier", EBADMSG);
-            else {
-                idx = atoi(&req[idx]);  // get the identifier and offset
-                if (idx <= 0)
-                    snprintf(ans,MAX_LEN,
-                             "FAIL %d identifier must be positive", EBADMSG);
-                else { // now we can finally close!
-                    int result = file_exit(idx);
-                    opened_fds[idx] = false;
-                    if (result == err_nofile)
-                        snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
-                    else if (result < 0) {
-                        snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
-                    }
-                    else {
-                        snprintf(ans, MAX_LEN, "OK 0 file closed");
-                    }
-                }
-            }
-        } // end FCLOSE
-
-        // ### UNKNOWN COMMAND ###
-        else {
-            int idx = next_arg(req,' ');
-            if ( idx == 0 )
-                idx = next_arg(req,' ');
-            if (idx != -1)
-                req[idx-1] = '\0';
-            snprintf(ans,MAX_LEN,"FAIL %d %s not understood", EBADMSG, req);
+        //thread has a client... status on thread change from idle to active
+        pthread_mutex_lock(&thread_mutex);
+        act_threads++;
+        pthread_mutex_unlock(&thread_mutex);
+        
+        //if all the threads are active, we create new threads if possible
+        if(act_threads == curr_threads){
+            if (set_threads(msock) != 0){
+                snprintf(msg, MAX_LEN, "%s: file client failed to make new threads from set_threads\n", __FILE__);
+                logger(msg);
+                snprintf(msg, MAX_LEN, "%s: the file client has died prematurely.\n", __FILE__);
+                logger(msg);
+                talive = false;             //to prevent further problem with threads we should exit file server...
+                return 0;
+            };
         }
 
-        // ### END OF COMMAND HANDLER ###
+        // assemble client coordinates (communication socket + IP)
+        ip_to_dotted(client_addr.sin_addr.s_addr, ip);
 
-        // Effectively send the answer back to the client:
-        if (debugs[DEBUG_COMM]) {
-            snprintf(msg, MAX_LEN, "%s: <-- %s\n", __FILE__, ans);
-            logger(msg);
-        } /* DEBUG_COMM */
-        send(sd,ans,strlen(ans),0);
-        send(sd,"\r\n",2,0);        // telnet expects \r\n
-        delete[] ans;
-    } // end of main loop.
+        bool* opened_fds = new bool[flocks_size];
+        for (size_t i = 0; i < flocks_size; i++)
+            opened_fds[i] = false;
 
-    // read 0 bytes = EOF:
-    snprintf(msg, MAX_LEN, "%s: client on socket descriptor %d (%s) went away, closing\n",
-             __FILE__, sd, ip);
-    logger(msg);
-    shutdown(sd, SHUT_RDWR);
-    close(sd);
-    for (size_t i = 0; i < flocks_size; i++)
-        if (opened_fds[i])
-            file_exit(i);
-    delete[] opened_fds;
-    delete clnt;
-    return 0;
+        // make sure req is null-terminated...
+        req[MAX_LEN-1] = '\0';
+
+
+        snprintf(msg, MAX_LEN, "%s: new client from %s assigned socket descriptor %d\n",
+                __FILE__, ip, sd);
+        logger(msg);
+        snprintf(msg, MAX_LEN, 
+                "Welcome to shfd v.1 [%s]. FOPEN FSEEK FREAD FWRITE FCLOSE QUIT spoken here.\r\n",
+                ip);
+        send(sd, msg, strlen(msg),0);
+
+
+        // Loop while the client has something to say and talive is true...
+        while (talive) {
+            struct pollfd pollinfo;
+            pollinfo.fd = sd;
+            pollinfo.events = POLLIN;
+
+            //BLOCK ON POLL instead on readline
+            int polledinfo = poll(&pollinfo, 1, TIME_EVAL);
+
+            if (polledinfo == 0){               //we wait and we check the talive status
+                continue;
+            }
+            if (polledinfo < 0){                //we wait 
+                if (errno == EINTR) continue;
+                snprintf(msg, MAX_LEN, "%s: failed at handle thread poll: %s\n", __FILE__, strerror(errno));
+                logger(msg);
+                talive = false;
+                break;
+            }
+
+            // POLLEDINFO == 1 ---> we go read the info received from 
+            n = readline(sd,req,MAX_LEN-1);
+
+            if (n == recv_nodata) break; 
+
+            if (n == -1){
+                snprintf(msg, MAX_LEN, "%s: error readline --> %s\n", __FILE__, strerror(errno));
+                logger(msg);
+                break;
+            }
+
+            //where n >= 0 (with or without data)
+            char* ans = new char[MAX_LEN]; // the response sent back to the client
+            // we allocate space for the answer dinamically because the
+            // result of a FREAD command is virtually unbounded in size
+            ans[MAX_LEN-1] = '\0';
+            // If we talk to telnet, we get \r\n at the end of the line
+            // instead of just \n, so we take care of the possible \r:
+            if ( n > 1 && req[n-1] == '\r' ) 
+                req[n-1] = '\0';
+            if (debugs[DEBUG_COMM]) {
+                snprintf(msg, MAX_LEN, "%s: --> %s\n", __FILE__, req);
+                logger(msg);
+            } /* DEBUG_COMM */
+            if ( strncasecmp(req,"QUIT",strlen("QUIT")) == 0 ) {  // we are done!
+                snprintf(msg, MAX_LEN, "%s: QUIT received from client %d (%s), closing\n", __FILE__, sd, ip);
+                logger(msg);
+                if (debugs[DEBUG_COMM]) {
+                    snprintf(msg, MAX_LEN, "%s: <-- OK 0 nice talking to you\n", __FILE__);
+                    logger(msg);
+                } /* DEBUG_COMM */
+                send(sd,"OK 0 nice talking to you\r\n", strlen("OK 0 nice talking to you\r\n"),0);
+                shutdown(sd, SHUT_RDWR);
+                close(sd);
+                delete[] ans;
+                snprintf(msg, MAX_LEN, "%s: Attempting to close the files opened by this client\n", __FILE__);
+                logger(msg);
+                for (size_t i = 0; i < flocks_size; i++)
+                    if (opened_fds[i])
+                        file_exit(i);
+                delete[] opened_fds;
+                //delete clnt;
+                //return 0;
+                break;                  //break from inner loop onto the next client
+            }
+            
+            // ### COMMAND HANDLER ###
+
+            // ### FOPEN ###
+            else if (strncasecmp(req,"FOPEN",strlen("FOPEN")) == 0 ) {
+                int idx = next_arg(req,' ');
+                if (idx == -1 ) {
+                    snprintf(ans,MAX_LEN,"FAIL %d FOPEN requires a file name", EBADMSG);
+                }
+                else { // we attempt to open the file
+                    char filename[MAX_LEN];
+                    // do we have a relative path?
+                    // awkward test, do we have anything better?
+                    if (req[idx] == '/') { // absolute
+                    snprintf(filename, MAX_LEN, "%s", &req[idx]);
+                    }
+                    else { // relative
+                        char cwd[MAX_LEN];
+                        getcwd(cwd, MAX_LEN);
+                        snprintf(filename, MAX_LEN, "%s/%s", cwd, &req[idx]);
+                    }
+
+                    // Improved file comparison (by inode rather than file name). Replaces (xx) below.
+
+                    // open the file to obtain its inode:
+                    int fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+                    // Note: we do not react to errors at this time since we will handle any 
+                    // possible error when opening the file for real
+
+                    int inode = -1;
+                    struct stat fs;
+                    int ret = fstat (fd, &fs);
+                    if (ret >= 0)
+                        inode = fs.st_ino;
+                    close(fd);
+
+                    // Look for a file with the same inode in flocks[]:
+                    fd = -1;
+                    for (size_t i = 0; i < flocks_size; i++) {
+                        if (flocks[i] != 0 && (int)flocks[i] -> inode == inode) {
+                            fd = i;
+                            pthread_mutex_lock(&flocks[fd] -> mutex);
+                            if (! opened_fds[fd])  // file already opened by the same client?
+                                flocks[fd] -> owners ++;
+                            pthread_mutex_unlock(&flocks[fd] -> mutex);
+                            opened_fds[fd] = true;
+                            break;
+                        }
+                    }
+
+                    /*
+                    // (xx) Old code for comparing files by file name, replaced by inode comparison (above)
+
+                    int fd = -1;
+
+                    for (size_t i = 0; i < flocks_size; i++) {
+                        if (flocks[i] != 0 && strcmp(filename, flocks[i] -> name) == 0) {
+                            fd = i;
+                            pthread_mutex_lock(&flocks[fd] -> mutex);
+                            if (! opened_fds[fd])  // file already opened by the same client?
+                                flocks[fd] -> owners ++;
+                            pthread_mutex_unlock(&flocks[fd] -> mutex);
+                            opened_fds[fd] = true;
+                            break;
+                        }
+                    }
+                    */
+
+                    if (fd >= 0) { // already opened
+                        snprintf(ans, MAX_LEN,
+                                "ERR %d file already opened, please use the supplied identifier", fd);
+                    }
+                    else { // we open the file anew
+                        fd = file_init(filename);
+                        if (fd < 0)
+                            snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
+                        else {
+                            snprintf(ans, MAX_LEN, "OK %d file opened, please use supplied identifier", fd);
+                            opened_fds[fd] = true;
+                        }
+                    }
+                    
+                }
+            } // end FOPEN
+
+            // ### FREAD ###
+            else if (strncasecmp(req,"FREAD",strlen("FREAD")) == 0 ) {
+                int idx = next_arg(req,' ');
+                if (idx == -1) // no identifier
+                    snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a file identifier", EBADMSG);
+                else {
+                    int idx1 = next_arg(&req[idx],' ');
+                    if (idx1 == -1) // no identifier
+                        snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a number of bytes to read", EBADMSG);
+                    else {
+                        idx1 = idx + idx1;
+                        req[idx1 - 1] = '\0';
+                        if (debugs[DEBUG_COMM]) {
+                            snprintf(msg, MAX_LEN, "%s: (before decoding) will read %s bytes from %s \n",
+                                    __FILE__, &req[idx1], &req[idx]); 
+                            logger(msg);
+                        }
+                        idx = atoi(&req[idx]);  // get the identifier and length
+                        idx1 = atoi(&req[idx1]);
+                        if (debugs[DEBUG_COMM]) {
+                            snprintf(msg, MAX_LEN, "%s: (after decoding) will read %d bytes from %d \n",
+                                    __FILE__, idx1, idx); 
+                            logger(msg);
+                        }
+                        if (idx <= 0 || idx1 <= 0)
+                            snprintf(ans, MAX_LEN,
+                                    "FAIL %d identifier and length must both be positive numbers", EBADMSG);
+                        else { // now we can finally read the thing!
+                            // read buffer
+                            char* read_buff = new char[idx1+1];
+                            int result = read_excl(idx, read_buff, idx1);
+                            // ASSUMPTION: we never read null bytes from the file.
+                            if (result == err_nofile) {
+                                snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
+                            }
+                            else if (result < 0) {
+                                snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
+                            }
+                            else {
+                                read_buff[result] = '\0';
+                                // we may need to allocate a larger buffer
+                                // besides the message, we give 40 characters to OK + number of bytes read.
+                                delete[] ans;
+                                ans = new char[40 + result];
+                                snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
+                            }
+                            delete [] read_buff;
+                        }
+                    }
+                }
+            } // end FREAD
+
+            // ### FWRITE ###
+            else if (strncasecmp(req,"FWRITE",strlen("FWRITE")) == 0 ) {
+                int idx = next_arg(req,' ');
+                if (idx == -1) // no argument!
+                    snprintf(ans,MAX_LEN,"ERROR %d FWRITE required a file identifier", EBADMSG);
+                else {
+                    int idx1 = next_arg(&req[idx],' ');
+                    if (idx1 == -1) // no data to write
+                        snprintf(ans,MAX_LEN,"FAIL %d FWRITE requires data to be written", EBADMSG);
+                    else {
+                        idx1 = idx1 + idx;
+                        req[idx1 - 1] = '\0';
+                        idx = atoi(&req[idx]);  // get the identifier and data
+                        if (idx <= 0)
+                            snprintf(ans,MAX_LEN,
+                                    "FAIL %d identifier must be positive", EBADMSG);
+                        else { // now we can finally write!
+                            if (debugs[DEBUG_FILE]) {
+                                snprintf(msg, MAX_LEN, "%s: will write %s\n", __FILE__, &req[idx1]);
+                                logger(msg);
+                            }
+                            int result = write_excl(idx, &req[idx1], strlen(&req[idx1]));
+                            if (result == err_nofile)
+                                snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
+                            else if (result < 0) {
+                                snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
+                            }
+                            else {
+                                snprintf(ans, MAX_LEN, "OK 0 wrote %d bytes", result);
+                            }
+                        }
+                    }
+                }
+            } // end WRITE
+
+            // ### FSEEK ###
+            else if (strncasecmp(req,"FSEEK",strlen("FSEEK")) == 0 ) {  
+                int idx = next_arg(req,' ');
+                if (idx == -1) // no identifier
+                    snprintf(ans,MAX_LEN,"FAIL %d FSEEK requires a file identifier", EBADMSG);
+                else {
+                    int idx1 = next_arg(&req[idx],' ');
+                    if (idx1 == -1) // no identifier
+                        snprintf(ans,MAX_LEN,"FAIL %d FSEEK requires an offset", EBADMSG);
+                    else {
+                        idx1 = idx1 + idx;
+                        req[idx1 - 1] = '\0';
+                        idx = atoi(&req[idx]);  // get the identifier and offset
+                        idx1 = atoi(&req[idx1]);
+                        if (idx <= 0)
+                            snprintf(ans,MAX_LEN,
+                                    "FAIL %d identifier must be positive", EBADMSG);
+                        else { // now we can finally seek!
+                            int result = seek_excl(idx, idx1);
+                            if (result == err_nofile)
+                                snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
+                            else if (result < 0) {
+                                snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
+                            }
+                            else {
+                                snprintf(ans, MAX_LEN, "OK 0 offset is now %d", result);
+                            }
+                        }
+                    }
+                } 
+            } // end FSEEK
+
+            // ### FCLOSE ###
+            else if (strncasecmp(req,"FCLOSE",strlen("FCLOSE")) == 0 ) {  
+                int idx = next_arg(req,' ');
+                if (idx == -1) // no identifier
+                    snprintf(ans,MAX_LEN,"FAIL %d FCLOSE requires a file identifier", EBADMSG);
+                else {
+                    idx = atoi(&req[idx]);  // get the identifier and offset
+                    if (idx <= 0)
+                        snprintf(ans,MAX_LEN,
+                                "FAIL %d identifier must be positive", EBADMSG);
+                    else { // now we can finally close!
+                        int result = file_exit(idx);
+                        opened_fds[idx] = false;
+                        if (result == err_nofile)
+                            snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
+                        else if (result < 0) {
+                            snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
+                        }
+                        else {
+                            snprintf(ans, MAX_LEN, "OK 0 file closed");
+                        }
+                    }
+                }
+            } // end FCLOSE
+
+            // ### UNKNOWN COMMAND ###
+            else {
+                int idx = next_arg(req,' ');
+                if ( idx == 0 )
+                    idx = next_arg(req,' ');
+                if (idx != -1)
+                    req[idx-1] = '\0';
+                snprintf(ans,MAX_LEN,"FAIL %d %s not understood", EBADMSG, req);
+            }
+
+            // ### END OF COMMAND HANDLER ###
+
+            // Effectively send the answer back to the client:
+            if (debugs[DEBUG_COMM]) {
+                snprintf(msg, MAX_LEN, "%s: <-- %s\n", __FILE__, ans);
+                logger(msg);
+            } /* DEBUG_COMM */
+            send(sd,ans,strlen(ans),0);
+            send(sd,"\r\n",2,0);        // telnet expects \r\n
+            delete[] ans;
+        } // end of main for file command loop.
+
+        // read 0 bytes = EOF:
+        if (!talive && !reboot){
+            send(sd,"FAIL 256 Sorry.Server is shutting down bye!\r\n", strlen("FAIL 256 Sorry.Server is shutting down bye!\r\n"),0);
+        }
+        if (!talive && reboot){
+            send(sd,"FAIL 256 Sorry.Server is Hanging Up Bye!\r\n", strlen("FAIL 256 Sorry.Server is Hanging Up. Bye!\r\n"),0);
+        }
+        snprintf(msg, MAX_LEN, "%s: client on socket descriptor %d (%s) went away, closing\n",
+                __FILE__, sd, ip);
+        logger(msg);
+
+        shutdown(sd, SHUT_RDWR);
+        close(sd);
+    
+        for (size_t i = 0; i < flocks_size; i++)
+            if (opened_fds[i])
+                file_exit(i);
+        delete[] opened_fds;
+        
+        //this thread has finished its client ... now going to a new one 
+        pthread_mutex_lock(&thread_mutex);
+        act_threads--;
+        pthread_mutex_unlock(&thread_mutex);
+        //delete clnt;
+
+    } //end of the while loop of the client socket
+
+    return 0; // it will never reach
 }
