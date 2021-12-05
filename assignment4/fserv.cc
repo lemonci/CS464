@@ -293,6 +293,7 @@ void* file_client (int msock) {
     int poll_count = 0; //counter for each poll
 
     while (1){
+        new_client:
         if (talive == false){
             pthread_mutex_lock(&thread_mutex);
             tdie = true;
@@ -456,7 +457,7 @@ void* file_client (int msock) {
                 delete[] opened_fds;
                 //delete clnt;
                 //return 0;
-                break;                  //break from inner loop onto the next client
+                goto new_client;                  //break from inner loop onto the next client
             }
             
             // ### COMMAND HANDLER ###
