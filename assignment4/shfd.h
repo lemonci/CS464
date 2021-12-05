@@ -29,6 +29,10 @@ struct peers{
     char* phost;
 };
 
+const int MAX_PEER = 10;  //up to 10 server
+extern struct peers pserv[MAX_PEER];
+extern int replica;                    //real number of replicas
+
 /*
  * Structure for parameters to the client handling function.  the IP
  * address is used for logging.
@@ -52,6 +56,7 @@ extern int curr_threads;
 extern int act_threads;
 extern bool tdie;
 extern int to_die;
+extern bool reboot;
 
 /* 
  * making sure that tha file server is alive 
