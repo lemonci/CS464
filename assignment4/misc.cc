@@ -19,7 +19,7 @@ long int shsock, fsock, psock;              // master sockets
 /*
 * the number of peers involved in replication
 */
-const int MAX_PEER = 10;  //up to 10 server
+//const int MAX_PEER = 10;  //up to 10 server
 struct peers pserv[MAX_PEER];
 int replica;                    //real number of replicas
 
