@@ -288,6 +288,7 @@ void* file_client (int msock) {
     //char* ip = clnt -> ip;
 
     int sd;         //the thread = socket
+    int peer_sd;
     char ip[20];       // ip = client_addr
     struct sockaddr_in client_addr;         //the address of the client....
     unsigned int client_addr_len = sizeof(client_addr);        // ... and its length
@@ -320,7 +321,7 @@ void* file_client (int msock) {
             talive = false;
             break;
         }
-        //to simulate more or less than the 60 sec while checking the state of talive
+        //to simulate more or sd than the 60 sec while checking the state of talive
         if (polled == 0 && poll_count < 20){    
             poll_count++;
             // snprintf(msg, MAX_LEN, "poll count = %d\n", poll_count);
@@ -461,6 +462,9 @@ void* file_client (int msock) {
                     if (opened_fds[i])
                         file_exit(i);
                 delete[] opened_fds;
+                pthread_mutex_lock(&thread_mutex);
+                act_threads--;
+                pthread_mutex_unlock(&thread_mutex);
                 //delete clnt;
                 //return 0;
                 goto new_client;                  //break from inner loop onto the next client
@@ -548,6 +552,15 @@ void* file_client (int msock) {
                     }
                     
                 }
+                // send the request to peers
+                for (int i=0; i< replica; i++){
+                    peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                    send(peer_sd,req,strlen(req),0);
+                    send(peer_sd,"\n",1,0);
+                    shutdown(peer_sd, SHUT_RDWR);
+                    close(peer_sd);
+                    printf("Connection closed");
+                }
             } // end FOPEN
 
         // ### FREAD ###
@@ -595,31 +608,31 @@ void* file_client (int msock) {
                             ans = new char[40 + result];
                             snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
                             //send FREAD request to peers
-                            struct readMajority allAns[replica+1];
+                            struct readMajority allAns[MAX_PEER];
                             strcpy(allAns[0].ans_read, ans);
-                            allAns[0].count++;
+                            allAns[0].counts++;
                             for (int i=1; i< replica+1; i++){
                                 //connect to peer
-                                sd = connectbyport(pserv[i].phost,pserv[i].pport);
+                                peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                                 printf("Connected to %s.\n", pserv[i].phost);
-                                send(sd,req,strlen(req),0);
-                                send(sd,"\n",1,0);
+                                send(peer_sd,req,strlen(req),0);
+                                send(peer_sd,"\n",1,0);
                                 int n;
                                 // receive response
-                                while ((n = recv_nonblock(sd,ans,MAX_LEN-1,10)) != recv_nodata) {
+                                while ((n = recv_nonblock(peer_sd,ans,MAX_LEN-1,10)) != recv_nodata) {
                                     if (n == 0) {
-                                        shutdown(sd, SHUT_RDWR);
-                                        close(sd);
+                                        shutdown(peer_sd, SHUT_RDWR);
+                                        close(peer_sd);
                                         printf("Connection closed. \n");
                                         return 0;
                                     }
                                     ans[n] = '\0';
                                     printf(ans);
                                     fflush(stdout);
-                                }                               
+                                }                          
                                 //store the response in an array
                                 for (int j=0; j< replica+1; j++){
-                                    if (strcasecmp(allAns[j].ans_read, ans) == 0){
+                                    if (strcmp(allAns[j].ans_read, ans) == 0){
                                         allAns[j].counts++;
                                     }
                                     else{
@@ -632,8 +645,8 @@ void* file_client (int msock) {
                                     }
                                 }
                                 //close
-                                shutdown(sd, SHUT_RDWR);
-                                close(sd);
+                                shutdown(peer_sd, SHUT_RDWR);
+                                close(peer_sd);
                                 printf("Connection closed.\n");
                             }
                         //compare to get the majority.
@@ -647,7 +660,6 @@ void* file_client (int msock) {
                         }
                         //Judge whether to send majority or sync failure.
                         //send response to client
-                        sd = clnt -> sd;
                         if (max_count*2 >= replica+1) send(sd,allAns[max_pos].ans_read,strlen(allAns[max_pos].ans_read),0);
                         else send(sd, "Sync failed.", strlen("Sync failed."), 0);
                         send(sd,"\n",1,0);
@@ -686,11 +698,11 @@ void* file_client (int msock) {
                         
                         // ask everyone to do the same writing.. use for loop to make sure that everyone receive the message.
                         for (int i=0; i< replica; i++){
-                            sd = connectbyport(pserv[i].phost,pserv[i].pport);
-                            send(sd,req,strlen(req),0);
-                            send(sd,"\n",1,0);
-                            shutdown(sd, SHUT_RDWR);
-                            close(sd);
+                            peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                            send(peer_sd,req,strlen(req),0);
+                            send(peer_sd,"\n",1,0);
+                            shutdown(peer_sd, SHUT_RDWR);
+                            close(peer_sd);
                             printf("Connection closed");
                         }
                         
@@ -736,7 +748,16 @@ void* file_client (int msock) {
                             }
                         }
                     }
-                } 
+                }
+                // send the request to peers
+                for (int i=0; i< replica; i++){
+                    peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                    send(peer_sd,req,strlen(req),0);
+                    send(peer_sd,"\n",1,0);
+                    shutdown(peer_sd, SHUT_RDWR);
+                    close(peer_sd);
+                    printf("Connection closed");
+                }
             } // end FSEEK
 
             // ### FCLOSE ###
@@ -761,6 +782,15 @@ void* file_client (int msock) {
                             snprintf(ans, MAX_LEN, "OK 0 file closed");
                         }
                     }
+                }
+                // send the request to peers
+                for (int i=0; i< replica; i++){
+                    peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                    send(peer_sd,req,strlen(req),0);
+                    send(peer_sd,"\n",1,0);
+                    shutdown(peer_sd, SHUT_RDWR);
+                    close(peer_sd);
+                    printf("Connection closed");
                 }
             } // end FCLOSE
 
