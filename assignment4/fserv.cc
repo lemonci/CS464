@@ -12,6 +12,12 @@
  */
 rwexcl_t** flocks;
 size_t flocks_size;
+struct readMajority{
+    char ans_read[MAX_LEN];
+    int counts;
+};
+const int ALEN = 1024;
+
 
 /*
  * Handles the FOPEN command.
@@ -544,92 +550,162 @@ void* file_client (int msock) {
                 }
             } // end FOPEN
 
-            // ### FREAD ###
-            else if (strncasecmp(req,"FREAD",strlen("FREAD")) == 0 ) {
-                int idx = next_arg(req,' ');
-                if (idx == -1) // no identifier
-                    snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a file identifier", EBADMSG);
+        // ### FREAD ###
+        else if (strncasecmp(req,"FREAD",strlen("FREAD")) == 0 ) {
+            int idx = next_arg(req,' ');
+            if (idx == -1) // no identifier
+                snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a file identifier", EBADMSG);
+            else {
+                int idx1 = next_arg(&req[idx],' ');
+                if (idx1 == -1) // no identifier
+                    snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a number of bytes to read", EBADMSG);
                 else {
-                    int idx1 = next_arg(&req[idx],' ');
-                    if (idx1 == -1) // no identifier
-                        snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a number of bytes to read", EBADMSG);
-                    else {
-                        idx1 = idx + idx1;
-                        req[idx1 - 1] = '\0';
-                        if (debugs[DEBUG_COMM]) {
-                            snprintf(msg, MAX_LEN, "%s: (before decoding) will read %s bytes from %s \n",
-                                    __FILE__, &req[idx1], &req[idx]); 
-                            logger(msg);
+                    idx1 = idx + idx1;
+                    req[idx1 - 1] = '\0';
+                    if (debugs[DEBUG_COMM]) {
+                        snprintf(msg, MAX_LEN, "%s: (before decoding) will read %s bytes from %s \n",
+                                 __FILE__, &req[idx1], &req[idx]); 
+                        logger(msg);
+                    }
+                    idx = atoi(&req[idx]);  // get the identifier and length
+                    idx1 = atoi(&req[idx1]);
+                    if (debugs[DEBUG_COMM]) {
+                        snprintf(msg, MAX_LEN, "%s: (after decoding) will read %d bytes from %d \n",
+                                 __FILE__, idx1, idx); 
+                        logger(msg);
+                    }
+                    if (idx <= 0 || idx1 <= 0)
+                        snprintf(ans, MAX_LEN, "FAIL %d identifier and length must both be positive numbers", EBADMSG);
+                    else { // now we can finally read the thing!
+                        // read buffer
+                        char* read_buff = new char[idx1+1];
+                        int result = read_excl(idx, read_buff, idx1);
+                        // ASSUMPTION: we never read null bytes from the file.
+                        if (result == err_nofile) {
+                            snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
                         }
-                        idx = atoi(&req[idx]);  // get the identifier and length
-                        idx1 = atoi(&req[idx1]);
-                        if (debugs[DEBUG_COMM]) {
-                            snprintf(msg, MAX_LEN, "%s: (after decoding) will read %d bytes from %d \n",
-                                    __FILE__, idx1, idx); 
-                            logger(msg);
+                        else if (result < 0) {
+                            snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
                         }
-                        if (idx <= 0 || idx1 <= 0)
-                            snprintf(ans, MAX_LEN,
-                                    "FAIL %d identifier and length must both be positive numbers", EBADMSG);
-                        else { // now we can finally read the thing!
-                            // read buffer
-                            char* read_buff = new char[idx1+1];
-                            int result = read_excl(idx, read_buff, idx1);
-                            // ASSUMPTION: we never read null bytes from the file.
-                            if (result == err_nofile) {
-                                snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
+                        else {
+                            read_buff[result] = '\0';
+                            // we may need to allocate a larger buffer
+                            // besides the message, we give 40 characters to OK + number of bytes read.
+                            delete[] ans;
+                            ans = new char[40 + result];
+                            snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
+                            //send FREAD request to peers
+                            struct readMajority allAns[replica+1];
+                            strcpy(allAns[0].ans_read, ans);
+                            allAns[0].count++;
+                            for (int i=1; i< replica+1; i++){
+                                //connect to peer
+                                sd = connectbyport(pserv[i].phost,pserv[i].pport);
+                                printf("Connected to %s.\n", pserv[i].phost);
+                                send(sd,req,strlen(req),0);
+                                send(sd,"\n",1,0);
+                                int n;
+                                // receive response
+                                while ((n = recv_nonblock(sd,ans,MAX_LEN-1,10)) != recv_nodata) {
+                                    if (n == 0) {
+                                        shutdown(sd, SHUT_RDWR);
+                                        close(sd);
+                                        printf("Connection closed. \n");
+                                        return 0;
+                                    }
+                                    ans[n] = '\0';
+                                    printf(ans);
+                                    fflush(stdout);
+                                }                               
+                                //store the response in an array
+                                for (int j=0; j< replica+1; j++){
+                                    if (strcasecmp(allAns[j].ans_read, ans) == 0){
+                                        allAns[j].counts++;
+                                    }
+                                    else{
+                                        for (int k=1; k< replica+1; k++){
+                                            if(allAns[k].counts == 0){
+                                                strcpy(allAns[k].ans_read, ans);
+                                                allAns[k].counts++;
+                                            }
+                                        }
+                                    }
+                                }
+                                //close
+                                shutdown(sd, SHUT_RDWR);
+                                close(sd);
+                                printf("Connection closed.\n");
                             }
-                            else if (result < 0) {
-                                snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
+                        //compare to get the majority.
+                        int max_count = 0;
+                        int max_pos = 0;
+                        for (int i = 0; i<replica+1; i++){
+                            if (max_count < allAns[i].counts){
+                                max_count = allAns[i].counts;
+                                max_pos = i;
                             }
-                            else {
-                                read_buff[result] = '\0';
-                                // we may need to allocate a larger buffer
-                                // besides the message, we give 40 characters to OK + number of bytes read.
-                                delete[] ans;
-                                ans = new char[40 + result];
-                                snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
-                            }
-                            delete [] read_buff;
                         }
+                        //Judge whether to send majority or sync failure.
+                        //send response to client
+                        sd = clnt -> sd;
+                        if (max_count*2 >= replica+1) send(sd,allAns[max_pos].ans_read,strlen(allAns[max_pos].ans_read),0);
+                        else send(sd, "Sync failed.", strlen("Sync failed."), 0);
+                        send(sd,"\n",1,0);
+                        shutdown(sd, SHUT_RDWR);
+                        close(sd);
+                        printf("Connection to client closed");
+                        }
+                        delete [] read_buff;
                     }
                 }
-            } // end FREAD
+            }
+        } // end FREAD
 
-            // ### FWRITE ###
-            else if (strncasecmp(req,"FWRITE",strlen("FWRITE")) == 0 ) {
-                int idx = next_arg(req,' ');
-                if (idx == -1) // no argument!
-                    snprintf(ans,MAX_LEN,"ERROR %d FWRITE required a file identifier", EBADMSG);
+        // ### FWRITE ###
+        else if (strncasecmp(req,"FWRITE",strlen("FWRITE")) == 0 ) {
+            int idx = next_arg(req,' ');
+            if (idx == -1) // no argument!
+                snprintf(ans,MAX_LEN,"ERROR %d FWRITE required a file identifier", EBADMSG);
+            else {
+                int idx1 = next_arg(&req[idx],' ');
+                if (idx1 == -1) // no data to write
+                    snprintf(ans,MAX_LEN,"FAIL %d FWRITE requires data to be written", EBADMSG);
                 else {
-                    int idx1 = next_arg(&req[idx],' ');
-                    if (idx1 == -1) // no data to write
-                        snprintf(ans,MAX_LEN,"FAIL %d FWRITE requires data to be written", EBADMSG);
-                    else {
-                        idx1 = idx1 + idx;
-                        req[idx1 - 1] = '\0';
-                        idx = atoi(&req[idx]);  // get the identifier and data
-                        if (idx <= 0)
-                            snprintf(ans,MAX_LEN,
-                                    "FAIL %d identifier must be positive", EBADMSG);
-                        else { // now we can finally write!
-                            if (debugs[DEBUG_FILE]) {
-                                snprintf(msg, MAX_LEN, "%s: will write %s\n", __FILE__, &req[idx1]);
-                                logger(msg);
-                            }
-                            int result = write_excl(idx, &req[idx1], strlen(&req[idx1]));
-                            if (result == err_nofile)
-                                snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
-                            else if (result < 0) {
-                                snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
-                            }
-                            else {
-                                snprintf(ans, MAX_LEN, "OK 0 wrote %d bytes", result);
-                            }
+                    idx1 = idx1 + idx;
+                    req[idx1 - 1] = '\0';
+                    idx = atoi(&req[idx]);  // get the identifier and data
+                    if (idx <= 0)
+                        snprintf(ans,MAX_LEN,
+                                 "FAIL %d identifier must be positive", EBADMSG);
+                    else { // now we can finally write!
+                        if (debugs[DEBUG_FILE]) {
+                            snprintf(msg, MAX_LEN, "%s: will write %s\n", __FILE__, &req[idx1]);
+                            logger(msg);
+                        }
+                        int result = write_excl(idx, &req[idx1], strlen(&req[idx1]));
+                        
+                        // ask everyone to do the same writing.. use for loop to make sure that everyone receive the message.
+                        for (int i=0; i< replica; i++){
+                            sd = connectbyport(pserv[i].phost,pserv[i].pport);
+                            send(sd,req,strlen(req),0);
+                            send(sd,"\n",1,0);
+                            shutdown(sd, SHUT_RDWR);
+                            close(sd);
+                            printf("Connection closed");
+                        }
+                        
+                        if (result == err_nofile)
+                            snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
+                        else if (result < 0) {
+                            snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
+                        }
+                        else {
+                            snprintf(ans, MAX_LEN, "OK 0 wrote %d bytes", result);
                         }
                     }
                 }
-            } // end WRITE
+            }
+        } // end WRITE
 
             // ### FSEEK ###
             else if (strncasecmp(req,"FSEEK",strlen("FSEEK")) == 0 ) {  
