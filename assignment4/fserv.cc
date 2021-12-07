@@ -559,7 +559,7 @@ void* file_client (int msock) {
                     send(peer_sd,"\n",1,0);
                     shutdown(peer_sd, SHUT_RDWR);
                     close(peer_sd);
-                    printf("Connection closed");
+                    printf("Connection closed - %s", peer_sd);
                 }
             } // end FOPEN
 
@@ -623,7 +623,7 @@ void* file_client (int msock) {
                                     if (n == 0) {
                                         shutdown(peer_sd, SHUT_RDWR);
                                         close(peer_sd);
-                                        printf("Connection closed. \n");
+                                        printf("Connection closed - %s", peer_sd);
                                         return 0;
                                     }
                                     ans[n] = '\0';
@@ -647,7 +647,7 @@ void* file_client (int msock) {
                                 //close
                                 shutdown(peer_sd, SHUT_RDWR);
                                 close(peer_sd);
-                                printf("Connection closed.\n");
+                                printf("Connection closed - %s", peer_sd);
                             }
                         //compare to get the majority.
                         int max_count = 0;
@@ -703,7 +703,7 @@ void* file_client (int msock) {
                             send(peer_sd,"\n",1,0);
                             shutdown(peer_sd, SHUT_RDWR);
                             close(peer_sd);
-                            printf("Connection closed");
+                            printf("Connection closed - %s", peer_sd);
                         }
                         
                         if (result == err_nofile)
@@ -756,7 +756,7 @@ void* file_client (int msock) {
                     send(peer_sd,"\n",1,0);
                     shutdown(peer_sd, SHUT_RDWR);
                     close(peer_sd);
-                    printf("Connection closed");
+                    printf("Connection closed - %s", peer_sd);
                 }
             } // end FSEEK
 
@@ -790,7 +790,7 @@ void* file_client (int msock) {
                     send(peer_sd,"\n",1,0);
                     shutdown(peer_sd, SHUT_RDWR);
                     close(peer_sd);
-                    printf("Connection closed");
+                    printf("Connection closed - %s", peer_sd);
                 }
             } // end FCLOSE
 
