@@ -532,10 +532,10 @@ int main (int argc, char** argv, char** envp) {
         }
     }
     //the extra arguments we extract and put them in the struct Peer
-    optind --;
-    for(; optind < argc && *argv[optind] != '-'; optind++){
-        extractPeer(argv[optind]);
-    }          
+    argc -= optind - 1; argv += optind - 1;
+    for(int i = 1; i < argc; i++){
+        extractPeer(argv[i]);
+    }                   
 
     if (shport <= 0 || fport <= 0 || pport <= 0 || incr_threads <= 0 || max_threads <= 0) {
         printf("Usage: %s  [-d] [-D] [-s port] [-f port] [-p port host:port host:port] [-t preallocate] [-T max_thread] [-v all|file|comm].\n", progname);
