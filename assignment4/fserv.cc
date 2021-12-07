@@ -17,7 +17,7 @@ struct readMajority{
     int counts;
 };
 const int ALEN = 1024;
-
+//timeout? keep things in individual thread?
 
 /*
  * Handles the FOPEN command.
@@ -552,14 +552,14 @@ void* file_client (int msock) {
                     }
                     
                 }
-                // send the request to peers
+                // send the request to peers //check the tokenized reconstruction??
                 for (int i=0; i< replica; i++){
                     peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                     send(peer_sd,req,strlen(req),0);
                     send(peer_sd,"\n",1,0);
                     shutdown(peer_sd, SHUT_RDWR);
                     close(peer_sd);
-                    printf("Connection closed - %s", peer_sd);
+                    printf("Connection closed - %d", peer_sd);
                 }
             } // end FOPEN
 
@@ -606,6 +606,7 @@ void* file_client (int msock) {
                             // besides the message, we give 40 characters to OK + number of bytes read.
                             delete[] ans;
                             ans = new char[40 + result];
+							strcpy(ans, read_buff);
                             snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
                             //send FREAD request to peers
                             struct readMajority allAns[MAX_PEER];
@@ -619,13 +620,15 @@ void* file_client (int msock) {
                                 send(peer_sd,"\n",1,0);
                                 int n;
                                 // receive response
-                                while ((n = recv_nonblock(peer_sd,ans,MAX_LEN-1,10)) != recv_nodata) {
-                                    if (n == 0) {
+                                while ((n = recv_nonblock(peer_sd,ans,MAX_LEN-1,10)) >0 ) {
+                                
+									/*if (n == 0) {
                                         shutdown(peer_sd, SHUT_RDWR);
                                         close(peer_sd);
                                         printf("Connection closed - %s", peer_sd);
-                                        return 0;
-                                    }
+                                        return 0; //?
+                                    }*/ 
+									//append it in the buffer
                                     ans[n] = '\0';
                                     printf(ans);
                                     fflush(stdout);
@@ -647,7 +650,7 @@ void* file_client (int msock) {
                                 //close
                                 shutdown(peer_sd, SHUT_RDWR);
                                 close(peer_sd);
-                                printf("Connection closed - %s", peer_sd);
+                                printf("Connection closed - %d", peer_sd);
                             }
                         //compare to get the majority.
                         int max_count = 0;
@@ -703,7 +706,7 @@ void* file_client (int msock) {
                             send(peer_sd,"\n",1,0);
                             shutdown(peer_sd, SHUT_RDWR);
                             close(peer_sd);
-                            printf("Connection closed - %s", peer_sd);
+                            printf("Connection closed - %d", peer_sd);
                         }
                         
                         if (result == err_nofile)
@@ -756,7 +759,7 @@ void* file_client (int msock) {
                     send(peer_sd,"\n",1,0);
                     shutdown(peer_sd, SHUT_RDWR);
                     close(peer_sd);
-                    printf("Connection closed - %s", peer_sd);
+                    printf("Connection closed - %d", peer_sd);
                 }
             } // end FSEEK
 
@@ -790,7 +793,7 @@ void* file_client (int msock) {
                     send(peer_sd,"\n",1,0);
                     shutdown(peer_sd, SHUT_RDWR);
                     close(peer_sd);
-                    printf("Connection closed - %s", peer_sd);
+                    printf("Connection closed - %d", peer_sd);
                 }
             } // end FCLOSE
 
