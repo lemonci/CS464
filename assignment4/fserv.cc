@@ -824,7 +824,7 @@ void* file_client (int msock) {
             send(sd,"FAIL 256 Sorry.Server is shutting down bye!\r\n", strlen("FAIL 256 Sorry.Server is shutting down bye!\r\n"),0);
         }
         if (!talive && reboot){
-            send(sd,"FAIL 256 Sorry.Server is Hanging Up Bye!\r\n", strlen("FAIL 256 Sorry.Server is Hanging Up. Bye!\r\n"),0);
+            send(sd,"FAIL 256 Sorry.Server is Hanging Up. Bye!\r\n", strlen("FAIL 256 Sorry.Server is Hanging Up. Bye!\r\n"),0);
         }
         snprintf(msg, MAX_LEN, "%s: client on socket descriptor %d (%s) went away, closing\n",
                 __FILE__, sd, ip);
