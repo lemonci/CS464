@@ -21,7 +21,7 @@ long int shsock, fsock, psock;              // master sockets
 */
 //const int MAX_PEER = 10;  //up to 10 server
 struct peers pserv[MAX_PEER];
-int replica;                    //real number of replicas
+int replica = 0;                    //real number of replicas
 
 
 /**
@@ -382,10 +382,10 @@ void deal_SIGHUP( int num){
     close(fsock);
     snprintf(msg, MAX_LEN, "%s: file server died, exiting.\n", __FILE__);
     logger(msg);
-    shutdown(psock, SHUT_RDWR);
-    close(psock);
-    snprintf(msg, MAX_LEN, "%s:peer server died, exiting.\n", __FILE__);
-    logger(msg);
+    // shutdown(psock, SHUT_RDWR);
+    // close(psock);
+    // snprintf(msg, MAX_LEN, "%s:peer server died, exiting.\n", __FILE__);
+    // logger(msg);
 
     //rebooting
     snprintf(msg, MAX_LEN, "%s: REBOOTING THE SYSTEM...\n", __FILE__);
@@ -419,6 +419,10 @@ void deal_SIGHUP( int num){
         return;
     }
     printf("peer server up and listening on port %d\n", pport);
+    printf("Server do no use peer port... closing port %d\n", pport);
+    shutdown(psock, SHUT_RDWR);
+    close(psock);
+    printf("psock is closed.\n");
 
     // Setting up the thread creation:
     pthread_t tt;
@@ -462,10 +466,6 @@ void deal_SIGQUIT(int num){
     shutdown(fsock, SHUT_RDWR);
     close(fsock);
     snprintf(msg, MAX_LEN, "%s: fsock is closed, exiting.\n", __FILE__);
-    logger(msg);
-    shutdown(psock, SHUT_RDWR);
-    close(psock);
-    snprintf(msg, MAX_LEN, "%s: psock is closed, exiting.\n", __FILE__);
     logger(msg);
 
     // snprintf(msg, MAX_LEN, "%s: all the servers died, exiting.\n", __FILE__);
@@ -535,7 +535,7 @@ int main (int argc, char** argv, char** envp) {
     argc -= optind - 1; argv += optind - 1;
     for(int i = 1; i < argc; i++){
         extractPeer(argv[i]);
-    }                   
+    }          
 
     if (shport <= 0 || fport <= 0 || pport <= 0 || incr_threads <= 0 || max_threads <= 0) {
         printf("Usage: %s  [-d] [-D] [-s port] [-f port] [-p port host:port host:port] [-t preallocate] [-T max_thread] [-v all|file|comm].\n", progname);
@@ -558,7 +558,6 @@ int main (int argc, char** argv, char** envp) {
             // some flag for synchronization
         }
     }
-
     
     // The pid file does not make sense as a lock file since our
     // server never goes down willlingly.  So we do not lock the file,
@@ -603,6 +602,10 @@ int main (int argc, char** argv, char** envp) {
         return 1;
     }
     printf("peer server up and listening on port %d\n", pport);
+    printf("Server do no use peer port... closing port %d\n", pport);
+    shutdown(psock, SHUT_RDWR);
+    close(psock);
+    printf("psock is closed.\n");
 
     //PART 3 - HANDLE SIGNALS
     signal(SIGHUP, deal_SIGHUP);
