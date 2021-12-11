@@ -611,7 +611,7 @@ void* file_client (int msock) {
                             //send FREAD request to peers
                             struct readMajority allAns[MAX_PEER];
                             strcpy(allAns[0].ans_read, ans);
-                            allAns[0].counts++;
+                            allAns[0].counts = 1;
                             for (int i=1; i< replica+1; i++){
                                 //connect to peer
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
