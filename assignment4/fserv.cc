@@ -613,7 +613,7 @@ void* file_client (int msock) {
 			    for (int i =0; i< MAX_PEER; i++) allAns[i].counts = 0;
                             strcpy(allAns[0].ans_read, ans);
                             allAns[0].counts ++;
-                            for (int i=1; i< replica+1; i++){
+                            for (int i=1; i< MAX_PEER; i++){
                                 //connect to peer
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                                 printf("Connected to %s.\n", pserv[i].phost);
@@ -635,12 +635,12 @@ void* file_client (int msock) {
                                     fflush(stdout);
                                 }                          
                                 //store the response in an array
-                                for (int j=0; j< replica+1; j++){
+                                for (int j=0; j< MAX_PEER; j++){
                                     if (strcmp(allAns[j].ans_read, ans) == 0){
                                         allAns[j].counts++;
                                     }
                                     else{
-                                        for (int k=1; k< replica+1; k++){
+                                        for (int k=1; k< MAX_PEER; k++){
                                             if(allAns[k].counts == 0){
                                                 strcpy(allAns[k].ans_read, ans);
                                                 allAns[k].counts++;
@@ -656,7 +656,7 @@ void* file_client (int msock) {
                         //compare to get the majority.
                         int max_count = 0;
                         int max_pos = 0;
-                        for (int i = 0; i<replica+1; i++){
+                        for (int i = 0; i<MAX_PEER; i++){
                             if (max_count < allAns[i].counts){
                                 max_count = allAns[i].counts;
                                 max_pos = i;
