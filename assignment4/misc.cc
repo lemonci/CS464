@@ -349,7 +349,7 @@ void extractPeer(char* address){
         } 
         else{
             
-            if ((newPeer.pport = atoi(token)) == 0){
+            if ((newPeer.pport = (unsigned short) atoi(token)) == 0){
                 printf("Port number invalid\n");
                 return;
             }
