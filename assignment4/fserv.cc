@@ -553,7 +553,11 @@ void* file_client (int msock) {
                     
                 }
                 // send the request to peers //check the tokenized reconstruction??
-                if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                if (replica == 0) {
+                    snprintf(msg, MAX_LEN, "No peers. fopen is completed\n");
+                    logger(msg);
+                    }
+                    
                 else{
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
@@ -705,7 +709,10 @@ void* file_client (int msock) {
                         int result = write_excl(idx, &req[idx1], strlen(&req[idx1]));
                         
                         // send the request to peers //check the tokenized reconstruction??
-                        if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                        if (replica == 0) {
+                            snprintf(msg, MAX_LEN, "No peers. fwrite is completed\n");
+                            logger(msg);
+                            }
                         else{
                             for (int i=0; i< replica; i++){
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
@@ -762,7 +769,10 @@ void* file_client (int msock) {
                     }
                 }
                 // send the request to peers //check the tokenized reconstruction??
-                if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                if (replica == 0) {
+                    snprintf(msg, MAX_LEN, "No peers. fseek is completed\n");
+                    logger(msg);
+                }
                 else{
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
@@ -800,7 +810,11 @@ void* file_client (int msock) {
                     }
                 }
                 // send the request to peers //check the tokenized reconstruction??
-                if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                if (replica == 0) {
+                    snprintf(msg, MAX_LEN, "No peers. fclose is completed\n");
+                    logger(msg);
+                    }
+                    
                 else{
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
