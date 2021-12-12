@@ -25,7 +25,7 @@
 * Structure to collect each peer server IP and port number
 */
 struct peers{
-    int pport;
+    unsigned short pport;
     char* phost;
 };
 
