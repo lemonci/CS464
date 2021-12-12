@@ -553,13 +553,17 @@ void* file_client (int msock) {
                     
                 }
                 // send the request to peers //check the tokenized reconstruction??
-                for (int i=0; i< replica; i++){
-                    peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-                    send(peer_sd,req,strlen(req),0);
-                    send(peer_sd,"\n",1,0);
-                    shutdown(peer_sd, SHUT_RDWR);
-                    close(peer_sd);
-                    printf("Connection closed - %d", peer_sd);
+                if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                else{
+                    for (int i=0; i< replica; i++){
+                        peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                        send(peer_sd,req,strlen(req),0);
+                        send(peer_sd,"\n",1,0);
+                        shutdown(peer_sd, SHUT_RDWR);
+                        close(peer_sd);
+                        snprintf(msg, MAX_LEN, "Connection closed - %d \n", peer_sd);
+                        logger(msg);
+                    }
                 }
             } // end FOPEN
 
@@ -606,11 +610,11 @@ void* file_client (int msock) {
                             // besides the message, we give 40 characters to OK + number of bytes read.
                             delete[] ans;
                             ans = new char[40 + result];
-							strcpy(ans, read_buff);
+                            strcpy(ans, read_buff);
                             snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
                             //send FREAD request to peers
                             struct readMajority allAns[MAX_PEER];
-			    for (int i =0; i< MAX_PEER; i++) allAns[i].counts = 0;
+                for (int i =0; i< MAX_PEER; i++) allAns[i].counts = 0;
                             strcpy(allAns[0].ans_read, ans);
                             allAns[0].counts ++;
                             for (int i=1; i< MAX_PEER; i++){
@@ -623,13 +627,13 @@ void* file_client (int msock) {
                                 // receive response
                                 while ((n = recv_nonblock(peer_sd,ans,MAX_LEN-1,10)) >0 ) {
                                 
-									/*if (n == 0) {
+                                    /*if (n == 0) {
                                         shutdown(peer_sd, SHUT_RDWR);
                                         close(peer_sd);
                                         printf("Connection closed - %s", peer_sd);
                                         return 0; //?
                                     }*/ 
-									//append it in the buffer
+                                    //append it in the buffer
                                     ans[n] = '\0';
                                     printf(ans);
                                     fflush(stdout);
@@ -700,14 +704,18 @@ void* file_client (int msock) {
                         }
                         int result = write_excl(idx, &req[idx1], strlen(&req[idx1]));
                         
-                        // ask everyone to do the same writing.. use for loop to make sure that everyone receive the message.
-                        for (int i=0; i< replica; i++){
-                            peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-                            send(peer_sd,req,strlen(req),0);
-                            send(peer_sd,"\n",1,0);
-                            shutdown(peer_sd, SHUT_RDWR);
-                            close(peer_sd);
-                            printf("Connection closed - %d", peer_sd);
+                        // send the request to peers //check the tokenized reconstruction??
+                        if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                        else{
+                            for (int i=0; i< replica; i++){
+                                peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                                send(peer_sd,req,strlen(req),0);
+                                send(peer_sd,"\n",1,0);
+                                shutdown(peer_sd, SHUT_RDWR);
+                                close(peer_sd);
+                                snprintf(msg, MAX_LEN, "Connection closed - %d \n", peer_sd);
+                                logger(msg);
+                            }
                         }
                         
                         if (result == err_nofile)
@@ -753,14 +761,18 @@ void* file_client (int msock) {
                         }
                     }
                 }
-                // send the request to peers
-                for (int i=0; i< replica; i++){
-                    peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-                    send(peer_sd,req,strlen(req),0);
-                    send(peer_sd,"\n",1,0);
-                    shutdown(peer_sd, SHUT_RDWR);
-                    close(peer_sd);
-                    printf("Connection closed - %d", peer_sd);
+                // send the request to peers //check the tokenized reconstruction??
+                if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                else{
+                    for (int i=0; i< replica; i++){
+                        peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                        send(peer_sd,req,strlen(req),0);
+                        send(peer_sd,"\n",1,0);
+                        shutdown(peer_sd, SHUT_RDWR);
+                        close(peer_sd);
+                        snprintf(msg, MAX_LEN, "Connection closed - %d \n", peer_sd);
+                        logger(msg);
+                    }
                 }
             } // end FSEEK
 
@@ -787,14 +799,18 @@ void* file_client (int msock) {
                         }
                     }
                 }
-                // send the request to peers
-                for (int i=0; i< replica; i++){
-                    peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-                    send(peer_sd,req,strlen(req),0);
-                    send(peer_sd,"\n",1,0);
-                    shutdown(peer_sd, SHUT_RDWR);
-                    close(peer_sd);
-                    printf("Connection closed - %d", peer_sd);
+                // send the request to peers //check the tokenized reconstruction??
+                if (replica == 0) snprintf(ans, MAX_LEN, "No peers.");
+                else{
+                    for (int i=0; i< replica; i++){
+                        peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                        send(peer_sd,req,strlen(req),0);
+                        send(peer_sd,"\n",1,0);
+                        shutdown(peer_sd, SHUT_RDWR);
+                        close(peer_sd);
+                        snprintf(msg, MAX_LEN, "Connection closed - %d \n", peer_sd);
+                        logger(msg);
+                    }
                 }
             } // end FCLOSE
 
