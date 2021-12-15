@@ -561,6 +561,8 @@ void* file_client (int msock) {
                 else{
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                        if (peer_sd < 0)
+                            continue;
                         send(peer_sd,req,strlen(req),0);
                         send(peer_sd,"\n",1,0);
                         shutdown(peer_sd, SHUT_RDWR);
@@ -601,6 +603,8 @@ void* file_client (int msock) {
                         // read buffer
                         char* read_buff = new char[idx1+1];
                         int result = read_excl(idx, read_buff, idx1);
+                        struct readMajority allAns[MAX_PEER];
+                        memset(allAns, 0, MAX_PEER*sizeof(allAns[0]));
                         // ASSUMPTION: we never read null bytes from the file.
                         if (result == err_nofile) {
                             snprintf(ans, MAX_LEN, "FAIL %d bad file descriptor %d", EBADF, idx);
@@ -617,7 +621,7 @@ void* file_client (int msock) {
                             strcpy(ans, read_buff);
                             snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
                             //send FREAD request to peers
-                            struct readMajority allAns[MAX_PEER];
+                            
                             for (int i =0; i< MAX_PEER; i++) 
                                 allAns[i].counts = 0;
                             strcpy(allAns[0].ans_read, ans);
@@ -682,7 +686,7 @@ void* file_client (int msock) {
                         //send response to client
                         if (max_count*2 >= replica+1){ 
                             send(sd,allAns[max_pos].ans_read,strlen(allAns[max_pos].ans_read),0);
-                        }else{
+                        }else{ 
                             send(sd, "Sync failed.", strlen("Sync failed."), 0);
                         }
                         send(sd,"\n",1,0);
