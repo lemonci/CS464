@@ -610,6 +610,7 @@ int main (int argc, char** argv, char** envp) {
     //PART 3 - HANDLE SIGNALS
     signal(SIGHUP, deal_SIGHUP);
     signal(SIGQUIT, deal_SIGQUIT);
+    signal(SIGPIPE, SIG_IGN);
 
     // ... and we detach!
     if (detach) {
