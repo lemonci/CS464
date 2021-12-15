@@ -682,7 +682,7 @@ void* file_client (int msock) {
                         //send response to client
                         if (max_count*2 >= replica+1){ 
                             send(sd,allAns[max_pos].ans_read,strlen(allAns[max_pos].ans_read),0);
-                        }else{} 
+                        }else{
                             send(sd, "Sync failed.", strlen("Sync failed."), 0);
                         }
                         send(sd,"\n",1,0);
