@@ -618,12 +618,18 @@ void* file_client (int msock) {
                             snprintf(ans, MAX_LEN, "OK %d %s", result, read_buff);
                             //send FREAD request to peers
                             struct readMajority allAns[MAX_PEER];
-                for (int i =0; i< MAX_PEER; i++) allAns[i].counts = 0;
+                            for (int i =0; i< MAX_PEER; i++) 
+                                allAns[i].counts = 0;
                             strcpy(allAns[0].ans_read, ans);
                             allAns[0].counts ++;
-                            for (int i=1; i< MAX_PEER; i++){
+                            for (int i=1; i<= replica; i++){
                                 //connect to peer
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
+                                if (peer_sd < 0){
+                                    snprintf(msg, MAX_LEN, "%s: peer_sd %d read not connect\n",__FILE__, i); 
+                                    logger(msg);
+                                    continue;
+                                }
                                 printf("Connected to %s.\n", pserv[i].phost);
                                 send(peer_sd,req,strlen(req),0);
                                 send(peer_sd,"\n",1,0);
@@ -643,12 +649,12 @@ void* file_client (int msock) {
                                     fflush(stdout);
                                 }                          
                                 //store the response in an array
-                                for (int j=0; j< MAX_PEER; j++){
+                                for (int j=0; j<=replica; j++){
                                     if (strcmp(allAns[j].ans_read, ans) == 0){
                                         allAns[j].counts++;
                                     }
                                     else{
-                                        for (int k=1; k< MAX_PEER; k++){
+                                        for (int k=1; k<=replica; k++){
                                             if(allAns[k].counts == 0){
                                                 strcpy(allAns[k].ans_read, ans);
                                                 allAns[k].counts++;
@@ -661,6 +667,8 @@ void* file_client (int msock) {
                                 close(peer_sd);
                                 printf("Connection closed - %d", peer_sd);
                             }
+                            delete [] read_buff;
+                        }
                         //compare to get the majority.
                         int max_count = 0;
                         int max_pos = 0;
@@ -672,14 +680,12 @@ void* file_client (int msock) {
                         }
                         //Judge whether to send majority or sync failure.
                         //send response to client
-                        if (max_count*2 >= replica+1) send(sd,allAns[max_pos].ans_read,strlen(allAns[max_pos].ans_read),0);
-                        else send(sd, "Sync failed.", strlen("Sync failed."), 0);
-                        send(sd,"\n",1,0);
-                        shutdown(sd, SHUT_RDWR);
-                        close(sd);
-                        printf("Connection to client closed");
+                        if (max_count*2 >= replica+1){ 
+                            send(sd,allAns[max_pos].ans_read,strlen(allAns[max_pos].ans_read),0);
+                        }else{} 
+                            send(sd, "Sync failed.", strlen("Sync failed."), 0);
                         }
-                        delete [] read_buff;
+                        send(sd,"\n",1,0);
                     }
                 }
             }
