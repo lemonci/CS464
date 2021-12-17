@@ -1,13 +1,43 @@
 Authors:           Wing Shu Leung,       Monica Li,             William Nugent
 Emails:            wleung19@ubishops.ca, mli@cs.ubishops.ca,    WNUGENT20@UBishops.ca
-Student ID number: 002272638,            002285699
+Student ID number: 002272638,            002285699              002287187
 ===================================================================================================
 Assignment 4 - 
 Build a Concurrent File Server with Preallocated Threads, Basic Signals and Synchronized Peers
 --------------------------------------------------------------------------------------------------
-OVERVIEW 
+GENERAL OVERVIEW 
 
 The code is based from the solution to Assignment 3 (CS 464/564, Fall 2021) of Stefan Bruda.
+See the next section to comprehend the code's entirety.
+--------------------------------------------------------------------------------------------------
+OVERVIEW OF ASSIGNMENT 4
+
+
+PART 1.
+
+In shell_server() we have turned it into an iterative server (by removing all thread creation) instead of a multithreaded server. 
+That way it can serve only one client at a time.
+
+
+PART 2.
+
+We keep the maximum, current total, and active threads saved as global variables. boolean variables falive and talive are also global variables
+and will be used to determine if the threads in the file server (talive) are alive and if the file server is alive (talive)
+
+We make sure to create preallocated threads using set_threads() and return a value determining whether or not any more threads may be created.
+
+In file_server() we make sure that all threads (connections) delete themselves and related threads when they are inactive. 
+We find whether these connections are inactive by repeatedly polling them periodically and reacting accordingly to it
+
+PART 3.
+
+Signal handler makes sure that when the signal SIGQUIT is received then it triggers deal_SIGQUIT() and makes sure to shutdown all servers and deleting/closing all threads.
+Similarly, once the signal SIGHUP is received, then it triggers deal_SIGHUP(), which ends all threads and the server and then reboots the system; 
+reassigning global variables, reassigning threads, and setting up the file server.
+
+--------------------------------------------------------------------------------------------------
+
+SPECIFICATION FROM ASSIGNMENT 3 (CODE FROM PROFESSOR BRUDA). 
 
 The server is implemented in the files shfd.h (header for everything),
 fserv.cc (code for the file server), shserv.cc (code for the shell
@@ -283,23 +313,3 @@ o  The code in general is kind of kludgy being written in a hurry.
    largely C.  I actually chose to implement the thing in C++
    precisely because of the memory management system (which is in my
    opinion much saner than C's).
-
-
-PART 1.
-
-In shell_server() we have turned it into an iterative server (by removing all thread creation) instead of a multithreaded server. That way it can serve only one client at a time.
-
-
-PART 2.
-
-We keep the maximum, current total, and active threads saved as global variables. boolean variables falive and talive are also global variables and will be used to determine if the threads in the file server (talive) are alive and if the file server is alive (talive)
-
-We make sure to create preallocated threads using set_threads() and return a value determining whether or not any more threads may be created.
-
-In file_server() we make sure that all threads (connections) delete themselves and related threads when they are inactive. 
-We find whether these connections are inactive by repeatedly polling them periodically and reacting accordingly to it
-
-PART 3.
-
-Signal handler makes sure that when the signal SIGQUIT is received then it triggers deal_SIGQUIT() and makes sure to shutdown all servers and deleting/closing all threads.
-Similarly, once the signal SIGHUP is received, then it triggers deal_SIGHUP(), which ends all threads and the server and then reboots the system; reassigning global variables, reassigning threads, and setting up the file server.
