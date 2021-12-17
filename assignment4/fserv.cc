@@ -626,7 +626,7 @@ void* file_client (int msock) {
                                 allAns[i].counts = 0;
                             strcpy(allAns[0].ans_read, ans);
                             allAns[0].counts ++;
-                            for (int i=1; i<= replica; i++){
+                            for (int i=0; i< replica; i++){
                                 //connect to peer
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                                 if (peer_sd < 0){
@@ -653,12 +653,12 @@ void* file_client (int msock) {
                                     fflush(stdout);
                                 }                          
                                 //store the response in an array
-                                for (int j=0; j<=replica; j++){
+                                for (int j=0; j<replica; j++){
                                     if (strcmp(allAns[j].ans_read, ans) == 0){
                                         allAns[j].counts++;
                                     }
                                     else{
-                                        for (int k=1; k<=replica; k++){
+                                        for (int k=1; k<replica; k++){
                                             if(allAns[k].counts == 0){
                                                 strcpy(allAns[k].ans_read, ans);
                                                 allAns[k].counts++;
