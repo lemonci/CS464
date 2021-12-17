@@ -1,6 +1,13 @@
--*- text -*-
+Authors:           Wing Shu Leung,       Monica Li,             William Nugent
+Emails:            wleung19@ubishops.ca, mli@cs.ubishops.ca,    WNUGENT20@UBishops.ca
+Student ID number: 002272638,            002285699
+===================================================================================================
+Assignment 4 - 
+Build a Concurrent File Server with Preallocated Threads, Basic Signals and Synchronized Peers
+--------------------------------------------------------------------------------------------------
+OVERVIEW 
 
-Solution to Assignment 3 (CS 464/564, Fall 2021), by Stefan Bruda
+The code is based from the solution to Assignment 3 (CS 464/564, Fall 2021) of Stefan Bruda.
 
 The server is implemented in the files shfd.h (header for everything),
 fserv.cc (code for the file server), shserv.cc (code for the shell
