@@ -8,36 +8,99 @@ Build a Concurrent File Server with Preallocated Threads, Basic Signals and Sync
 GENERAL OVERVIEW 
 
 The code is based from the solution to Assignment 3 (CS 464/564, Fall 2021) of Stefan Bruda.
-See the next section to comprehend the code's entirety.
+Please read the section 'SPECIFICATIONS FROM ASSIGNMENT 3' to comprehend the complete code.
+
+No new file are being added in the scope of this assignment. We mainly focus on changing the 
+functionalities of misc.cc, shfd.h (for global variables) and fserv.cc. New functions are added in
+misc.cc. Only file_client() in fserv.cc was modified for concurrency and replication.
 --------------------------------------------------------------------------------------------------
-OVERVIEW OF ASSIGNMENT 4
+SPECIFICATIONS OF ASSIGNMENT 4
 
 
-PART 1.
+PART 1 - Restict shell server commands
+In shell_server() we have turned it into an iterative server (by removing thread creation)
+instead of a multithreaded server. That way it can serve only one client at a time.
 
-In shell_server() we have turned it into an iterative server (by removing all thread creation) instead of a multithreaded server. 
-That way it can serve only one client at a time.
+We have switched the master socket so it can only listen to local machine only using the prexisting
+function controlsocket() (with INADDR_LOOPBACK).
 
 
-PART 2.
+PART 2 - Concurrency management
+Using the distributed approach, the preallocated threads (incr_treads) will monitor each other
+whether if new threads should be created (until it reaches max_threads) or it should killed itself 
+to release ressources from having too many idle threads in the server. 
 
-We keep the maximum, current total, and active threads saved as global variables. boolean variables falive and talive are also global variables
-and will be used to determine if the threads in the file server (talive) are alive and if the file server is alive (talive)
+We keep the maximum (max_threads), current total(curr_threads), the increment of each thread creation
+(incr_threads) and active threads (act_threads) as global variables. 
+Flags such as falive and talive were used as global variables to keep a check on the threads if they 
+need to be alive or if file server is closed by signal quit or hangup. 
 
-We make sure to create preallocated threads using set_threads() and return a value determining whether or not any more threads may be created.
+From assignment 3, we modify the functionality of file_server such that it will be the threads that 
+will handle the clients (from file_client) instead of master thread file_server. File server exists
+to keep the preallocated threads alive. We create preallocated threads using set_threads() 
+and return a value determining whether or not any more threads may be created.
 
-In file_server() we make sure that all threads (connections) delete themselves and related threads when they are inactive. 
-We find whether these connections are inactive by repeatedly polling them periodically and reacting accordingly to it
+The general concept to create new preallocated threads is as follow: if all current threads are active,
+set_threads() should activate. If it reaches to the maximum of threads, set_threads() stop creating 
+new threads. We use poll() to monitor the number of idle threads at the master socket. If it is deemed 
+to be too much (after 1 minute), we will call handle_thread(). The first idle thread that reach 
+this function will delete themselve until it has reached the appropriate level of preallocated threads. 
+We find whether these connections are inactive by repeatedly polling them periodically and
+reacting accordingly to it.
+\
+set_threads() and handle_threads() are in misc.cc
 
-PART 3.
 
-Signal handler makes sure that when the signal SIGQUIT is received then it triggers deal_SIGQUIT() and makes sure to shutdown all servers and deleting/closing all threads.
-Similarly, once the signal SIGHUP is received, then it triggers deal_SIGHUP(), which ends all threads and the server and then reboots the system; 
-reassigning global variables, reassigning threads, and setting up the file server.
+PART 3 - SIGNAL HANDLER
+Signal handler makes sure that when the signal SIGQUIT is received then it triggers deal_SIGQUIT()
+and makes sure to shutdown all servers and deleting/closing all threads (including the ones that are 
+acitvely serving clients).
+
+To do so, instead of being blocked on accept(), we blocked on poll() to check the flag talive is still
+active. If so, normal procedures of file_client shall resume, else it shall exit from the loop by
+shutting down and closing the socket, resume back at being an idle thread where it will be handle by 
+handle_threads() to kill itself.
+
+Similarly, once the signal SIGHUP is received, then it triggers deal_SIGHUP(), 
+which ends all threads, the server and then reboots the system; reassigning global variables, 
+reassigning threads, and setting up the file server. The flag talive will be putted back up. The 
+clients who were before the HANGUP will be politely being shutdown and close. They only need to
+call back the master socket for the reconnection to be established.
+
+
+PART 4 - REPLICATION
+
+
+
+PART 5 - COMMANDLINE
+Nothing much has changed except that we now we accepted the following command line:
+
+  serv [-d] [-D] [-v all|file|comm] [-f port] [-s port] [-p port] [-t incr_thread] [-T max_threads] [host:port]
+
+where
+
+  -f  overrides the default file server port
+  -s  overrides the default shell server port
+  -p  overrides the default peer server port
+  -t  overrides the default increment of preallocated thread
+  -T  overrides the default maximum thread
+  -d  does not detach (debugging mode)
+  -D  delays read and write operations (see report for rationale)
+  -v  comm: prints out (to stdout) messages related to communication
+            events
+      file: prints out (to stdout) messages related to file access
+      all:  `-v comm' and `-v file' together
+
+   The remaining arguments are the host information (ip or host name) followed by a ":" 
+   and its port number. 
+
+***Note that our server do not use a peer port (we assign a new one each time we communicate with
+our peers). Hence the argument of pport will connect and then exit (it will be notify from the server
+side).
 
 --------------------------------------------------------------------------------------------------
 
-SPECIFICATION FROM ASSIGNMENT 3 (CODE FROM PROFESSOR BRUDA). 
+SPECIFICATIONS FROM ASSIGNMENT 3 (CODE'S AUTHOR IS PROFESSOR STEFAN BRUDA). 
 
 The server is implemented in the files shfd.h (header for everything),
 fserv.cc (code for the file server), shserv.cc (code for the shell
