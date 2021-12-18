@@ -606,10 +606,10 @@ int main (int argc, char** argv, char** envp) {
         return 1;
     }
     printf("peer server up and listening on port %d\n", pport);
-    printf("Server do no use peer port... closing port %d\n", pport);
+/*    printf("Server do no use peer port... closing port %d\n", pport);
     shutdown(psock, SHUT_RDWR);
     close(psock);
-    printf("psock is closed.\n");
+    printf("psock is closed.\n"); */
 
     //PART 3 - HANDLE SIGNALS
     signal(SIGHUP, deal_SIGHUP);
