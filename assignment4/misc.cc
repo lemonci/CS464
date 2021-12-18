@@ -134,9 +134,6 @@ int set_threads(pack) {
     pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
     
     char msg[MAX_LEN];
-    struct socket_client * pack = NULL;
-	if (client == 1){pack = &clientpack;} else {pack = &peerpack;}
-	pack->socket = msock;
 	
     for (int i=0; i< incr_threads; i++){
         if (curr_threads <max_threads){
