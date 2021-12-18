@@ -1,4 +1,5 @@
 /*
+ * Assignment 4 with
  * Part of the solution for Assignment 3, by Stefan Bruda.
  *
  * Common header for all the server functions and data.
@@ -29,9 +30,24 @@ struct peers{
     char* phost;
 };
 
+/*
+* Structure to collect each peer server IP and port number
+* Flag to judge whether the information is from peer or client. 
+* When client == 0, it is a peer. 
+* When client == 1, it is a client.
+*/
+struct socket_client{
+    int socket; 
+    int client;
+};
+
+
 const int MAX_PEER = 10;  //up to 10 server
 extern struct peers pserv[MAX_PEER];
 extern int replica;                    //real number of replicas
+
+extern struct socket_client clientpack;
+extern struct socket_client peerpark;
 
 /*
  * Structure for parameters to the client handling function.  the IP
@@ -153,7 +169,7 @@ const int err_nofile = -2;
  */
 //void* file_client (client_t*);
 
-void* file_client(int);
+void* file_client(socket_client);
 
 
 /*** Shell server stuff: ***/
@@ -174,7 +190,7 @@ void* shell_client(client_t*);
 /*
 *  to create preallocated threads based on thread_incr
 */
-int set_threads(long int);
+int set_threads(socket_client);
 
 /**
  * handle threads whether to die or not 
