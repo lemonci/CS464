@@ -283,7 +283,7 @@ int read_excl(int fd, char* stuff, size_t stuff_length) {
  */
 //void* file_client (client_t* clnt) {
 
-void* file_client (int msock) {
+void* file_client (struct socket_client pack) {
     //int sd = clnt -> sd;
     //char* ip = clnt -> ip;
 
@@ -292,7 +292,8 @@ void* file_client (int msock) {
     char ip[20];       // ip = client_addr
     struct sockaddr_in client_addr;         //the address of the client....
     unsigned int client_addr_len = sizeof(client_addr);        // ... and its length
-
+    int msock = pack.socket;
+	int client = pack.client;
 
     char req[MAX_LEN];  // current request
     char msg[MAX_LEN];  // logger string
@@ -561,11 +562,8 @@ void* file_client (int msock) {
                 else{
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-						if (peer_sd < 0){
-							snprintf(msg, MAX_LEN, "%s: peer_sd %d read not connect\n",__FILE__, i); 
-							logger(msg);
-							continue;
-						}
+                        if (peer_sd < 0)
+                            continue;
                         send(peer_sd,req,strlen(req),0);
                         send(peer_sd,"\n",1,0);
                         shutdown(peer_sd, SHUT_RDWR);
@@ -586,12 +584,8 @@ void* file_client (int msock) {
                 if (idx1 == -1) // no identifier
                     snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a number of bytes to read", EBADMSG);
                 else {
-                    //snprintf(msg, MAX_LEN,"idx: %d, idx1: %d, req:%s\n", idx, idx1, req);
-                    //logger(msg);
                     idx1 = idx + idx1;
-                    req[idx1 + 1] = '\0';
-                    //snprintf(msg, MAX_LEN, "req_afterwards:%s\n", req);
-                    //logger(msg);
+                    req[idx1 - 1] = '\0';
                     if (debugs[DEBUG_COMM]) {
                         snprintf(msg, MAX_LEN, "%s: (before decoding) will read %s bytes from %s \n",
                                  __FILE__, &req[idx1], &req[idx]); 
@@ -633,7 +627,7 @@ void* file_client (int msock) {
                                 allAns[i].counts = 0;
                             strcpy(allAns[0].ans_read, ans);
                             allAns[0].counts ++;
-                            for (int i=0; i< replica; i++){
+                            for (int i=1; i<= replica; i++){
                                 //connect to peer
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                                 if (peer_sd < 0){
@@ -656,16 +650,16 @@ void* file_client (int msock) {
                                     }*/ 
                                     //append it in the buffer
                                     ans[n] = '\0';
-                                    printf("ans: %s\n", ans);
+                                    printf(ans);
                                     fflush(stdout);
                                 }                          
-                                printf("%s\n", "//store the response in an array");
-                                for (int j=0; j<replica; j++){
+                                //store the response in an array
+                                for (int j=0; j<=replica; j++){
                                     if (strcmp(allAns[j].ans_read, ans) == 0){
                                         allAns[j].counts++;
                                     }
                                     else{
-                                        for (int k=1; k<replica; k++){
+                                        for (int k=1; k<=replica; k++){
                                             if(allAns[k].counts == 0){
                                                 strcpy(allAns[k].ans_read, ans);
                                                 allAns[k].counts++;
@@ -713,7 +707,7 @@ void* file_client (int msock) {
                     snprintf(ans,MAX_LEN,"FAIL %d FWRITE requires data to be written", EBADMSG);
                 else {
                     idx1 = idx1 + idx;
-                    req[idx1 + 1] = '\0';
+                    req[idx1 - 1] = '\0';
                     idx = atoi(&req[idx]);  // get the identifier and data
                     if (idx <= 0)
                         snprintf(ans,MAX_LEN,
@@ -733,11 +727,6 @@ void* file_client (int msock) {
                         else{
                             for (int i=0; i< replica; i++){
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-                                if (peer_sd < 0){
-                                    snprintf(msg, MAX_LEN, "%s: peer_sd %d read not connect\n",__FILE__, i); 
-                                    logger(msg);
-                                    continue;
-                                }
                                 send(peer_sd,req,strlen(req),0);
                                 send(peer_sd,"\n",1,0);
                                 shutdown(peer_sd, SHUT_RDWR);
@@ -771,7 +760,7 @@ void* file_client (int msock) {
                         snprintf(ans,MAX_LEN,"FAIL %d FSEEK requires an offset", EBADMSG);
                     else {
                         idx1 = idx1 + idx;
-                        req[idx1 + 1] = '\0';
+                        req[idx1 - 1] = '\0';
                         idx = atoi(&req[idx]);  // get the identifier and offset
                         idx1 = atoi(&req[idx1]);
                         if (idx <= 0)
@@ -798,11 +787,6 @@ void* file_client (int msock) {
                 else{
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-                        if (peer_sd < 0){
-							snprintf(msg, MAX_LEN, "%s: peer_sd %d read not connect\n",__FILE__, i); 
-							logger(msg);
-							continue;
-                        }
                         send(peer_sd,req,strlen(req),0);
                         send(peer_sd,"\n",1,0);
                         shutdown(peer_sd, SHUT_RDWR);
@@ -845,12 +829,7 @@ void* file_client (int msock) {
                 else{
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
-						if (peer_sd < 0){
-							snprintf(msg, MAX_LEN, "%s: peer_sd %d read not connect\n",__FILE__, i); 
-							logger(msg);
-							continue;
-						}
-						send(peer_sd,req,strlen(req),0);
+                        send(peer_sd,req,strlen(req),0);
                         send(peer_sd,"\n",1,0);
                         shutdown(peer_sd, SHUT_RDWR);
                         close(peer_sd);
