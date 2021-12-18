@@ -126,7 +126,7 @@ int next_arg(const char* line, char delim) {
 * 1= threads cannot be create
 * if reach the max_threads just go back....
 */
-int set_threads(int msock, int client) {
+int set_threads(pack) {
      // Setting up the thread creation:
     pthread_t tt;
     pthread_attr_t ta;
