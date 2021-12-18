@@ -414,6 +414,7 @@ void deal_SIGHUP( int num){
     printf("Shell server up and listening clients on local machine at port %d\n", shport);
 
     fsock = passivesocket(fport,qlen);
+	clientpack.socket = fsock;
     if (fsock < 0) {
         perror("file server passivesocket");
         return;
