@@ -669,7 +669,7 @@ int main (int argc, char** argv, char** envp) {
     pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
 
     // Launch the thread that becomes a file server:
-    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)fsock) != 0 ) {
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, clientpack) != 0 ) {
         snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n", __FILE__, strerror(errno));
         logger(msg);
         return 1;
