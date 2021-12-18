@@ -70,7 +70,15 @@ call back the master socket for the reconnection to be established.
 
 PART 4 - REPLICATION
 
+FOPEN/FSEEK/FWRITE/FCLOSE will be dexectute the commands locally and then sent the same command from client
+to the peers via the peer socket.
 
+The server will exectute FREAD locally and store the FREAD result in an 2D array with count 1. Then the server will 
+send the command to the peers using peer socket and receive their responses. Then the server will check the responses
+to the existing FREAD results in the array. If a response never appears in the array, it will be stored in a new row
+with count 1; if a response has already appeared in the array, the count of such a response will be incremented. Finally,
+the response with largest count will be sent to client. If there is no max/more than one max count, sync fail will be
+sent to client.
 
 PART 5 - COMMANDLINE
 Nothing much has changed except that we now we accepted the following command line:
