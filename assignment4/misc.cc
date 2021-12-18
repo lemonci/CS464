@@ -190,11 +190,11 @@ void handle_threads(){
     
 }
 
-void* file_server (int msock) {
+void* file_server (int msock, int client) {
     char msg[MAX_LEN];
 
     talive = true;              //we have our initial threads
-    if (set_threads(msock) != 0){              //set the initial threads
+    if (set_threads(msock, client) != 0){              //set the initial threads
         snprintf(msg, MAX_LEN, "%s: file server failed to make new threads from set_threads\n", __FILE__);
         logger(msg);
         snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
