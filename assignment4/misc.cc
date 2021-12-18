@@ -1,4 +1,5 @@
 /*
+ * Assignment 4 with
  * Part of the solution for Assignment 3, by Stefan Bruda.
  *
  * This files contains some common code for the two servers, the main
@@ -126,7 +127,7 @@ int next_arg(const char* line, char delim) {
 * 1= threads cannot be create
 * if reach the max_threads just go back....
 */
-int set_threads(pack) {
+int set_threads(struct socket_client pack) {
      // Setting up the thread creation:
     pthread_t tt;
     pthread_attr_t ta;
@@ -386,10 +387,10 @@ void deal_SIGHUP( int num){
     close(fsock);
     snprintf(msg, MAX_LEN, "%s: file server died, exiting.\n", __FILE__);
     logger(msg);
-    // shutdown(psock, SHUT_RDWR);
-    // close(psock);
-    // snprintf(msg, MAX_LEN, "%s:peer server died, exiting.\n", __FILE__);
-    // logger(msg);
+    shutdown(psock, SHUT_RDWR);
+    close(psock);
+    snprintf(msg, MAX_LEN, "%s:peer server died, exiting.\n", __FILE__);
+    logger(msg);
 
     //rebooting
     snprintf(msg, MAX_LEN, "%s: REBOOTING THE SYSTEM...\n", __FILE__);
@@ -423,10 +424,10 @@ void deal_SIGHUP( int num){
         return;
     }
     printf("peer server up and listening on port %d\n", pport);
-    printf("Server do no use peer port... closing port %d\n", pport);
-    shutdown(psock, SHUT_RDWR);
-    close(psock);
-    printf("psock is closed.\n");
+    // printf("Server do no use peer port... closing port %d\n", pport);
+    // shutdown(psock, SHUT_RDWR);
+    // close(psock);
+    // printf("psock is closed.\n");
 
     // Setting up the thread creation:
     pthread_t tt;
@@ -435,11 +436,21 @@ void deal_SIGHUP( int num){
     pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
 
     // Launch the thread that becomes a file server:
-    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)fsock) != 0 ) {
+    clientpack.socket = fsock;
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)clientpack) != 0 ) {
         snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n", __FILE__, strerror(errno));
         logger(msg);
         return;
     }
+    
+    // Launch the thread that becomes a peer server:
+	peerpack.socket = psock;
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)peerpack) != 0 ) {
+        snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n for peer", __FILE__, strerror(errno));
+        logger(msg);
+        return 1;
+    }
+    
     falive = true;
 
     // Continue and become the shell server:
@@ -465,12 +476,17 @@ void deal_SIGQUIT(int num){
 
     shutdown(shsock, SHUT_RDWR);
     close(shsock);
-    snprintf(msg, MAX_LEN, "%s: shsock is closed, exiting.\n", __FILE__);
+    snprintf(msg, MAX_LEN, "%s: shell server died, exiting.\n", __FILE__);
     logger(msg);
     shutdown(fsock, SHUT_RDWR);
     close(fsock);
-    snprintf(msg, MAX_LEN, "%s: fsock is closed, exiting.\n", __FILE__);
+    snprintf(msg, MAX_LEN, "%s: file server died, exiting.\n", __FILE__);
     logger(msg);
+    shutdown(psock, SHUT_RDWR);
+    close(psock);
+    snprintf(msg, MAX_LEN, "%s:peer server died, exiting.\n", __FILE__);
+    logger(msg);
+    
 
     // snprintf(msg, MAX_LEN, "%s: all the servers died, exiting.\n", __FILE__);
     // logger(msg);
@@ -672,7 +688,6 @@ int main (int argc, char** argv, char** envp) {
         logger(msg);
         return 1;
     }
-    falive = true;
 
     // Launch the thread that becomes a peer server:
 	peerpack.socket = psock;
