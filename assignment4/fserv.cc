@@ -294,7 +294,8 @@ void* file_client (struct socket_client pack) {
     unsigned int client_addr_len = sizeof(client_addr);        // ... and its length
     int msock = pack.socket;
 	int client = pack.client;
-
+    snprintf(msg, MAX_LEN, "msock: %d, client: %d\n", msock, client);
+    logger(msg);
     char req[MAX_LEN];  // current request
     char msg[MAX_LEN];  // logger string
     int n;
