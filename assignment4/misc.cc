@@ -24,6 +24,10 @@ struct peers pserv[MAX_PEER];
 int replica = 0;                    //real number of replicas
 struct socket_client{int socket; int client;}; //Flag to judge whether the information is from peer or client. When client == 0, it is a peer. When client == 1, it is a client.
 
+struct socket_client clientpack = {0,1};
+struct socket_client peerpack = {0,0};
+
+
 /**
  * preallocated threads
  */
@@ -122,7 +126,7 @@ int next_arg(const char* line, char delim) {
 * 1= threads cannot be create
 * if reach the max_threads just go back....
 */
-int set_threads(long int msock) {
+int set_threads(int msock, int client) {
      // Setting up the thread creation:
     pthread_t tt;
     pthread_attr_t ta;
@@ -130,7 +134,10 @@ int set_threads(long int msock) {
     pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
     
     char msg[MAX_LEN];
-
+    struct socket_client * pack = NULL;
+	if (client == 1){pack = &clientpack;} else {pack = &peerpack;}
+	pack->socket = msock;
+	
     for (int i=0; i< incr_threads; i++){
         if (curr_threads <max_threads){
             pthread_mutex_lock(&thread_mutex);
@@ -138,7 +145,7 @@ int set_threads(long int msock) {
             snprintf(msg, MAX_LEN, "%s: new thread [%d] create...current thread = %d\n", __FILE__, gettid(), curr_threads);
             logger(msg);
             pthread_mutex_unlock(&thread_mutex);
-            if(pthread_create(&tt, &ta, (void* (*) (void*))file_client, (void*) msock) != 0){
+            if(pthread_create(&tt, &ta, (void* (*) (void*))file_client, (void*) pack) != 0){
                 snprintf(msg, MAX_LEN, "%s: set threads cannot pthread_create: %s\n", __FILE__, strerror(errno));
                 logger(msg);
                 snprintf(msg, MAX_LEN, "%s: the file server died.\n", __FILE__);
