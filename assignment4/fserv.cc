@@ -1,5 +1,6 @@
 /*
- * Part of the solution for Assignment 3, by Stefan Bruda.
+ *Assignment 4 with 
+ *Part of the solution for Assignment 3, by Stefan Bruda.
  *
  * This file contains the code for the file server.
  */
@@ -283,7 +284,7 @@ int read_excl(int fd, char* stuff, size_t stuff_length) {
  */
 //void* file_client (client_t* clnt) {
 
-void* file_client (struct socket_client pack) {
+void* file_client (socket_client pack) {
     //int sd = clnt -> sd;
     //char* ip = clnt -> ip;
 
