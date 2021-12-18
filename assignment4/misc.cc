@@ -668,7 +668,16 @@ int main (int argc, char** argv, char** envp) {
     // Launch the thread that becomes a file server:
 	clientpack.socket = fsock;
     if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)clientpack) != 0 ) {
-        snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n", __FILE__, strerror(errno));
+        snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n for client", __FILE__, strerror(errno));
+        logger(msg);
+        return 1;
+    }
+    falive = true;
+
+    // Launch the thread that becomes a peer server:
+	peerpack.socket = psock;
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)peerpack) != 0 ) {
+        snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n for peer", __FILE__, strerror(errno));
         logger(msg);
         return 1;
     }
