@@ -559,10 +559,12 @@ void* file_client (struct socket_client pack) {
                     logger(msg);
                     }
                     
-                else{
+                else if(client == 1){
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                         if (peer_sd < 0)
+							snprintf(msg, MAX_LEN, "%s: peer_sd %d read not connect\n",__FILE__, i); 
+						    logger(msg);
                             continue;
                         send(peer_sd,req,strlen(req),0);
                         send(peer_sd,"\n",1,0);
@@ -784,7 +786,7 @@ void* file_client (struct socket_client pack) {
                     snprintf(msg, MAX_LEN, "No peers. fseek is completed\n");
                     logger(msg);
                 }
-                else{
+                else if(client == 1){
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                         send(peer_sd,req,strlen(req),0);
@@ -826,7 +828,7 @@ void* file_client (struct socket_client pack) {
                     logger(msg);
                     }
                     
-                else{
+                else if(client == 1){
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                         send(peer_sd,req,strlen(req),0);
