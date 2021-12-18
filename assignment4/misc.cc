@@ -414,7 +414,6 @@ void deal_SIGHUP( int num){
     printf("Shell server up and listening clients on local machine at port %d\n", shport);
 
     fsock = passivesocket(fport,qlen);
-	clientpack.socket = fsock;
     if (fsock < 0) {
         perror("file server passivesocket");
         return;
@@ -670,6 +669,7 @@ int main (int argc, char** argv, char** envp) {
     pthread_attr_setdetachstate(&ta,PTHREAD_CREATE_DETACHED);
 
     // Launch the thread that becomes a file server:
+	clientpack.socket = fsock;
     if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)clientpack) != 0 ) {
         snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n", __FILE__, strerror(errno));
         logger(msg);
