@@ -649,10 +649,10 @@ void* file_client (int msock) {
                                     }*/ 
                                     //append it in the buffer
                                     ans[n] = '\0';
-                                    printf(ans);
+                                    printf("ans: %s\n", ans);
                                     fflush(stdout);
                                 }                          
-                                //store the response in an array
+                                printf("%s\n", "//store the response in an array");
                                 for (int j=0; j<replica; j++){
                                     if (strcmp(allAns[j].ans_read, ans) == 0){
                                         allAns[j].counts++;
