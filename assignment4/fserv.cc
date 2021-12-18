@@ -583,8 +583,10 @@ void* file_client (int msock) {
                 if (idx1 == -1) // no identifier
                     snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a number of bytes to read", EBADMSG);
                 else {
+					printf("idx: %d, idx1: %d, req:%s\n", idx, idx1, req);
                     idx1 = idx + idx1;
                     req[idx1 - 1] = '\0';
+					printf("req_afterwards:%s\n", req);
                     if (debugs[DEBUG_COMM]) {
                         snprintf(msg, MAX_LEN, "%s: (before decoding) will read %s bytes from %s \n",
                                  __FILE__, &req[idx1], &req[idx]); 
