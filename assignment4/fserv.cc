@@ -713,7 +713,7 @@ void* file_client (int msock) {
                     snprintf(ans,MAX_LEN,"FAIL %d FWRITE requires data to be written", EBADMSG);
                 else {
                     idx1 = idx1 + idx;
-                    req[idx1 + = '\0';
+                    req[idx1 + 1] = '\0';
                     idx = atoi(&req[idx]);  // get the identifier and data
                     if (idx <= 0)
                         snprintf(ans,MAX_LEN,
