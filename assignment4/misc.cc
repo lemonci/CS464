@@ -22,7 +22,7 @@ long int shsock, fsock, psock;              // master sockets
 //const int MAX_PEER = 10;  //up to 10 server
 struct peers pserv[MAX_PEER];
 int replica = 0;                    //real number of replicas
-
+struct socket_client{int socket; int client;}; //Flag to judge whether the information is from peer or client. When client == 0, it is a peer. When client == 1, it is a client.
 
 /**
  * preallocated threads
