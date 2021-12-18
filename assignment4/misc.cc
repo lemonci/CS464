@@ -23,7 +23,6 @@ long int shsock, fsock, psock;              // master sockets
 //const int MAX_PEER = 10;  //up to 10 server
 struct peers pserv[MAX_PEER];
 int replica = 0;                    //real number of replicas
-struct socket_client{int socket; int client;}; //Flag to judge whether the information is from peer or client. When client == 0, it is a peer. When client == 1, it is a client.
 
 struct socket_client clientpack = {0,1};
 struct socket_client peerpack = {0,0};
@@ -127,7 +126,7 @@ int next_arg(const char* line, char delim) {
 * 1= threads cannot be create
 * if reach the max_threads just go back....
 */
-int set_threads(struct socket_client pack) {
+int set_threads(socket_client pack) {
      // Setting up the thread creation:
     pthread_t tt;
     pthread_attr_t ta;
@@ -188,7 +187,7 @@ void handle_threads(){
     
 }
 
-void* file_server (struct socket_client pack) {
+void* file_server (socket_client pack) {
     char msg[MAX_LEN];
 
     talive = true;              //we have our initial threads
