@@ -47,7 +47,7 @@ extern struct peers pserv[MAX_PEER];
 extern int replica;                    //real number of replicas
 
 extern struct socket_client clientpack;
-extern struct socket_client peerpark;
+extern struct socket_client peerpack;
 
 /*
  * Structure for parameters to the client handling function.  the IP
