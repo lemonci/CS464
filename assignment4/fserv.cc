@@ -1,5 +1,6 @@
 /*
- * Part of the solution for Assignment 3, by Stefan Bruda.
+ *Assignment 4 with 
+ *Part of the solution for Assignment 3, by Stefan Bruda.
  *
  * This file contains the code for the file server.
  */
@@ -283,21 +284,20 @@ int read_excl(int fd, char* stuff, size_t stuff_length) {
  */
 //void* file_client (client_t* clnt) {
 
-void* file_client (struct socket_client *pack) {
+void* file_client (socket_client pack) {
     //int sd = clnt -> sd;
     //char* ip = clnt -> ip;
-
+    char msg[MAX_LEN]; // logger string
     int sd;         //the thread = socket
     int peer_sd;
     char ip[20];       // ip = client_addr
     struct sockaddr_in client_addr;         //the address of the client....
     unsigned int client_addr_len = sizeof(client_addr);        // ... and its length
-    int msock = pack->socket;
-	int client = pack->client;
+    int msock = pack.socket;
+	int client = pack.client;
     snprintf(msg, MAX_LEN, "msock: %d, client: %d\n", msock, client);
     logger(msg);
     char req[MAX_LEN];  // current request
-    char msg[MAX_LEN];  // logger string
     int n;
     int poll_count = 0; //counter for each poll
 
