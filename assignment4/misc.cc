@@ -126,7 +126,7 @@ int next_arg(const char* line, char delim) {
 * 1= threads cannot be create
 * if reach the max_threads just go back....
 */
-int set_threads(socket_client pack) {
+int set_threads(struct socket_client *pack) {
      // Setting up the thread creation:
     pthread_t tt;
     pthread_attr_t ta;
@@ -187,7 +187,7 @@ void handle_threads(){
     
 }
 
-void* file_server (socket_client pack) {
+void* file_server (struct socket_client *pack) {
     char msg[MAX_LEN];
 
     talive = true;              //we have our initial threads
@@ -436,7 +436,7 @@ void deal_SIGHUP( int num){
 
     // Launch the thread that becomes a file server:
     clientpack.socket = fsock;
-    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)clientpack) != 0 ) {
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)&clientpack) != 0 ) {
         snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n", __FILE__, strerror(errno));
         logger(msg);
         return;
@@ -444,10 +444,10 @@ void deal_SIGHUP( int num){
     
     // Launch the thread that becomes a peer server:
 	peerpack.socket = psock;
-    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)peerpack) != 0 ) {
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)&peerpack) != 0 ) {
         snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n for peer", __FILE__, strerror(errno));
         logger(msg);
-        return 1;
+        return;
     }
     
     falive = true;
@@ -682,7 +682,7 @@ int main (int argc, char** argv, char** envp) {
 
     // Launch the thread that becomes a file server:
 	clientpack.socket = fsock;
-    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)clientpack) != 0 ) {
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)&clientpack) != 0 ) {
         snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n for client", __FILE__, strerror(errno));
         logger(msg);
         return 1;
@@ -690,7 +690,7 @@ int main (int argc, char** argv, char** envp) {
 
     // Launch the thread that becomes a peer server:
 	peerpack.socket = psock;
-    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)peerpack) != 0 ) {
+    if ( pthread_create(&tt, &ta, (void* (*) (void*))file_server, (void*)&peerpack) != 0 ) {
         snprintf(msg, MAX_LEN, "%s: pthread_create: %s\n for peer", __FILE__, strerror(errno));
         logger(msg);
         return 1;
