@@ -169,7 +169,7 @@ const int err_nofile = -2;
  */
 //void* file_client (client_t*);
 
-void* file_client(socket_client);
+void* file_client(socket_client*);
 
 
 /*** Shell server stuff: ***/
@@ -190,7 +190,7 @@ void* shell_client(client_t*);
 /*
 *  to create preallocated threads based on thread_incr
 */
-int set_threads(socket_client);
+int set_threads(socket_client*);
 
 /**
  * handle threads whether to die or not 

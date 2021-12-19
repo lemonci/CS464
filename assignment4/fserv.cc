@@ -588,7 +588,7 @@ void* file_client (struct socket_client *pack) {
                     snprintf(ans,MAX_LEN,"FAIL %d FREAD requires a number of bytes to read", EBADMSG);
                 else {
                     idx1 = idx + idx1;
-                    req[idx1 - 1] = '\0';
+                    req[idx1 + 1] = '\0';
                     if (debugs[DEBUG_COMM]) {
                         snprintf(msg, MAX_LEN, "%s: (before decoding) will read %s bytes from %s \n",
                                  __FILE__, &req[idx1], &req[idx]); 
@@ -630,7 +630,7 @@ void* file_client (struct socket_client *pack) {
                                 allAns[i].counts = 0;
                             strcpy(allAns[0].ans_read, ans);
                             allAns[0].counts ++;
-                            for (int i=1; i<= replica; i++){
+                            for (int i=0; i< replica; i++){
                                 //connect to peer
                                 peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                                 if (peer_sd < 0){
@@ -710,7 +710,7 @@ void* file_client (struct socket_client *pack) {
                     snprintf(ans,MAX_LEN,"FAIL %d FWRITE requires data to be written", EBADMSG);
                 else {
                     idx1 = idx1 + idx;
-                    req[idx1 - 1] = '\0';
+                    req[idx1 + 1] = '\0';
                     idx = atoi(&req[idx]);  // get the identifier and data
                     if (idx <= 0)
                         snprintf(ans,MAX_LEN,
@@ -763,7 +763,7 @@ void* file_client (struct socket_client *pack) {
                         snprintf(ans,MAX_LEN,"FAIL %d FSEEK requires an offset", EBADMSG);
                     else {
                         idx1 = idx1 + idx;
-                        req[idx1 - 1] = '\0';
+                        req[idx1 + 1] = '\0';
                         idx = atoi(&req[idx]);  // get the identifier and offset
                         idx1 = atoi(&req[idx1]);
                         if (idx <= 0)
