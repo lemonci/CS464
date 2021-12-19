@@ -1,6 +1,5 @@
 /*
- *Assignment 4 with 
- *Part of the solution for Assignment 3, by Stefan Bruda.
+ * Part of the solution for Assignment 3, by Stefan Bruda.
  *
  * This file contains the code for the file server.
  */
@@ -284,7 +283,7 @@ int read_excl(int fd, char* stuff, size_t stuff_length) {
  */
 //void* file_client (client_t* clnt) {
 
-void* file_client (socket_client pack) {
+void* file_client (struct socket_client *pack) {
     //int sd = clnt -> sd;
     //char* ip = clnt -> ip;
 
@@ -293,8 +292,8 @@ void* file_client (socket_client pack) {
     char ip[20];       // ip = client_addr
     struct sockaddr_in client_addr;         //the address of the client....
     unsigned int client_addr_len = sizeof(client_addr);        // ... and its length
-    int msock = pack.socket;
-	int client = pack.client;
+    int msock = pack->socket;
+	int client = pack->client;
     snprintf(msg, MAX_LEN, "msock: %d, client: %d\n", msock, client);
     logger(msg);
     char req[MAX_LEN];  // current request
@@ -374,7 +373,7 @@ void* file_client (socket_client pack) {
         
         //if all the threads are active, we create new threads if possible
         if(act_threads == curr_threads){
-            if (set_threads(msock) != 0){
+            if (set_threads(pack) != 0){
                 snprintf(msg, MAX_LEN, "%s: file client failed to make new threads from set_threads\n", __FILE__);
                 logger(msg);
                 snprintf(msg, MAX_LEN, "%s: the file client has died prematurely.\n", __FILE__);
