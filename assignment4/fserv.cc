@@ -18,7 +18,7 @@ struct readMajority{
     int counts;
 };
 const int ALEN = 1024;
-int fd_array[11][200];
+int fd_array[11][200] = {0};
 //timeout? keep things in individual thread?
 
 /*
@@ -562,6 +562,11 @@ void* file_client (struct socket_client *pack) {
                     }
                     
                 else if(client == 1){
+					int* p = fd_array;
+					for (int i=0; i< 200;  i++){
+						if (*p==0) break;
+						p += 11;
+					}
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
                         if (peer_sd < 0)
@@ -570,6 +575,14 @@ void* file_client (struct socket_client *pack) {
                             continue;
                         send(peer_sd,req,strlen(req),0);
                         send(peer_sd,"\n",1,0);
+						int a;
+						// receive response
+						while ((a = recv_nonblock(peer_sd,ans,MAX_LEN-1,10)) >0 ) {
+							ans[a] = '\0';
+							snprintf(msg, MAX_LEN, "ans from peer: %s\n", ans); 
+							logger(msg);
+							// fflush(stdout);
+						}				
                         shutdown(peer_sd, SHUT_RDWR);
                         close(peer_sd);
                         snprintf(msg, MAX_LEN, "Connection closed - %d \n", peer_sd);
