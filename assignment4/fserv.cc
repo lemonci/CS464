@@ -18,6 +18,7 @@ struct readMajority{
     int counts;
 };
 const int ALEN = 1024;
+int fd_array[11][200];
 //timeout? keep things in individual thread?
 
 /*
