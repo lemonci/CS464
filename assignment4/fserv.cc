@@ -562,7 +562,7 @@ void* file_client (struct socket_client *pack) {
                     }
                     
                 else if(client == 1){
-					int* p = fd_array;
+					int* p = &fd_array[0][0];
 					for (int i=0; i< 200;  i++){
 						if (*p==0) break;
 						p += 11;
@@ -576,13 +576,15 @@ void* file_client (struct socket_client *pack) {
                         send(peer_sd,req,strlen(req),0);
                         send(peer_sd,"\n",1,0);
 						int a;
+						char* ans_peer = new char[MAX_LEN];
 						// receive response
-						while ((a = recv_nonblock(peer_sd,ans,MAX_LEN-1,10)) >0 ) {
-							ans[a] = '\0';
-							snprintf(msg, MAX_LEN, "ans from peer: %s\n", ans); 
+						while ((a = recv_nonblock(peer_sd,ans_peer,MAX_LEN-1,10)) >0 ) {
+							ans_peer[a] = '\0';
+							printf("ans:%s\n", ans_peer);
+							snprintf(msg, MAX_LEN, "ans from peer: %s\n", ans_peer); 
 							logger(msg);
 							// fflush(stdout);
-						}				
+						}
                         shutdown(peer_sd, SHUT_RDWR);
                         close(peer_sd);
                         snprintf(msg, MAX_LEN, "Connection closed - %d \n", peer_sd);
