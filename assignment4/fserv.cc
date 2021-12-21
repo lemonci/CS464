@@ -18,7 +18,12 @@ struct readMajority{
     int counts;
 };
 const int ALEN = 1024;
-int fd_array[11][200] = {0};
+// Using DUP2 no longer rely on file descriptor map
+// int fd_array[11][200] = {0};
+
+// Using a global variable to record the smallest free file descriptor
+int g_free_fd = 1000;
+
 //timeout? keep things in individual thread?
 
 /*
@@ -549,6 +554,12 @@ void* file_client (struct socket_client *pack) {
                         if (fd < 0)
                             snprintf(ans, MAX_LEN, "FAIL %d %s", errno, strerror(errno));
                         else {
+                            // replace fd with an artificial fd which is larger than 1000
+                            // The artificial fd is used as a normal fd which is sent to the client 
+                            // and recorded in the fd array, aka, opened_fds[]
+                            fd = dup2(fd, g_free_fd);
+                            // Move the last free fd to the next so that the artificial fd is not reused
+                            g_free_fd++;
                             snprintf(ans, MAX_LEN, "OK %d file opened, please use supplied identifier", fd);
                             opened_fds[fd] = true;
                         }
