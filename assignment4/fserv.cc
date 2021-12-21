@@ -529,9 +529,7 @@ void* file_client (struct socket_client *pack) {
 
                     /*
                     // (xx) Old code for comparing files by file name, replaced by inode comparison (above)
-
                     int fd = -1;
-
                     for (size_t i = 0; i < flocks_size; i++) {
                         if (flocks[i] != 0 && strcmp(filename, flocks[i] -> name) == 0) {
                             fd = i;
@@ -573,10 +571,12 @@ void* file_client (struct socket_client *pack) {
                     }
                     
                 else if(client == 1){
+                    /*
 					int* p = &fd_array[0][0];
 					for (int i=0; i< 200;  i++){
 						if (*p==0) break;
 						p += 11;
+                        */
 					}
                     for (int i=0; i< replica; i++){
                         peer_sd = connectbyportint(pserv[i].phost,pserv[i].pport);
