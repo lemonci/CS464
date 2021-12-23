@@ -4,7 +4,7 @@
 library: shfd.h \
 output file: shfd.log, shfd.pid
 ### global variable
-bool falive: flag for ?\
-pthread_mutex_t logger_mutex:
-extern char **environ: ?
+bool falive: flag for ? \
+pthread_mutex_t logger_mutex: \
+extern char **environ: ? \
 
