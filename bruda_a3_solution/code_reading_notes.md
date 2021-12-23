@@ -1,6 +1,6 @@
-#Notes for reading Bruda's solution - Assignment 3
-##Misc.cc
-###Linked files
+# Notes for reading Bruda's solution - Assignment 3
+## Misc.cc
+### Linked files
 library: shfd.h \
 output file: shfd.log, shfd.pid
 ### global variable
